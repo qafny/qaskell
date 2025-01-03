@@ -1,6 +1,7 @@
-
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+-- 9. Graph Isomorphisms
 
 module DSL.GraphIso
   (isIsomorphicAdjMatrix)
@@ -11,54 +12,58 @@ import Data.List (permutations, transpose)
 import Data.Foldable (toList)
 import Data.Proxy
 import DSL.AdjMatrix ( AdjMatrix(..), adjMatrix, getNodes, getEdges, complementEdges )
-import DSL.Solve (IntWeighted(..), Weighted(..), solveF, generateChoices, generateChoicesForIsomorphism)
+import DSL.Solve (solveF, generateChoices, ChoiceStrategy)
 
-hA :: Int -> Int -> [IntWeighted Int] -> Int
-hA numNodesG1 numNodesG2 mapping =
-  let
-    -- Term 1: Each node in G1 maps to one node in G2
-    term1 = sum [ (1 - sum [1 | Weighted w _ <- mapping, w == i])^2 | i <- [0 .. numNodesG2 - 1] ]
-    -- Term 2: Each node in G2 maps from one node in G1
-    term2 = sum [ (1 - sum [1 | Weighted _ v <- mapping, v == i])^2 | i <- [0 .. numNodesG1 - 1] ]
-  in term1 + term2
+import Debug.Trace
 
-hB :: Eq a => AdjMatrix a -> AdjMatrix a -> [IntWeighted Int] -> Int
-hB g1 g2 mapping =
-  let
+-- Hamiltonian H_A
+hA :: Int -> [[Int]] -> Int
+hA n x = term1 + term2
+  where
+    -- Each vertex in G2 maps to exactly one vertex in G1
+    term1 = sum [ (1 - sum [x !! v !! i | i <- [0 .. n - 1]]) ^ 2 | v <- [0 .. n - 1] ]
+    -- Each vertex in G1 is mapped from exactly one vertex in G2
+    term2 = sum [ (1 - sum [x !! v !! i | v <- [0 .. n - 1]]) ^ 2 | i <- [0 .. n - 1] ]
+
+hB :: Eq a => AdjMatrix a -> AdjMatrix a -> [[Int]] -> Int
+hB g1 g2 x = term1 + term2
+  where
     edgesG1 = getEdges g1
     edgesG2 = getEdges g2
-    -- Map node indices
-    nodeMap = [(i, u) | Weighted i u <- mapping]
-    -- Non-edges in G1 map to edges in G2
-    term1 = sum [ 1 | (i, j) <- complementEdges g1, (u, v) <- edgesG2, (i, u) `elem` nodeMap, (j, v) `elem` nodeMap ]
-    -- Edges in G1 map to non-edges in G2
-    term2 = sum [ 1 | (i, j) <- edgesG1, (u, v) <- complementEdges g2, (i, u) `elem` nodeMap, (j, v) `elem` nodeMap ]
-  in term1 + term2
+    complementG1 = complementEdges g1
+    complementG2 = complementEdges g2
+
+    -- Penalize non-edges in G1 mapping to edges in G2
+    term1 = sum [ x !! u !! i * x !! v !! j
+                | (i, j) <- complementG1, (u, v) <- edgesG2 ]
+
+    -- Penalize edges in G1 mapping to non-edges in G2
+    term2 = sum [ x !! u !! i * x !! v !! j
+                | (i, j) <- edgesG1, (u, v) <- complementG2 ]
 
 -- Total Hamiltonian
-totalH :: Eq a => AdjMatrix a -> AdjMatrix a -> [IntWeighted Int] -> Int
-totalH g1 g2 mapping =
+totalH :: Eq a => AdjMatrix a -> AdjMatrix a -> [[Int]] -> Int
+totalH g1 g2 x =
   let a = 1 -- Weight for H_A
       b = 1 -- Weight for H_B
-  in a * hA (length $ getNodes g1) (length $ getNodes g2) mapping
-     + b * hB g1 g2 mapping
-     
+  in a * hA (length $ getNodes g1) x + b * hB g1 g2 x
+
+-- Isomorphism strategy: Generate all permutations of node indices
+isomorphismStrategy :: MonadPlus m => Int -> Int -> ChoiceStrategy m [] a [[Int]]
+isomorphismStrategy numVerticesG2 numVerticesG1 _ =
+  return [ [ [fromEnum (v == i) | i <- [0 .. numVerticesG1 - 1]] | v <- perm ]
+         | perm <- permutations [0 .. numVerticesG2 - 1]
+         ]
+
 -- Main function to return minimum Hamiltonian value
 isIsomorphicAdjMatrix :: forall m a. (Foldable m, MonadPlus m, Eq a) =>
-  Proxy m ->          -- Proxy to disambiguate the MonadPlus instance
-  AdjMatrix a ->      -- First graph
-  AdjMatrix a ->      -- Second graph
-  Int                 -- Returns the minimum Hamiltonian value
+  Proxy m -> AdjMatrix a -> AdjMatrix a -> Int
 isIsomorphicAdjMatrix Proxy g1 g2 =
-  let
-    numNodes = length $ getNodes g1
-    -- Ensure the graphs have the same number of nodes
-    guard = if length (getNodes g1) /= length (getNodes g2)
-              then error "Graphs must have the same number of nodes"
-              else ()
-    -- Generate all permutations using MonadPlus
-    mappings :: m [IntWeighted Int]
-    mappings = generateChoicesForIsomorphism numNodes
-    -- Compute the Hamiltonian for each mapping
-    hamiltonians = map (totalH g1 g2 . toList) (toList mappings)
+  let n = length $ getNodes g1
+      m = length $ getNodes g2
+      mappings :: m [[[Int]]]
+      mappings = generateChoices (isomorphismStrategy m n) [()]
+      -- Compute all Hamiltonians for mappings
+      hamiltonians = concatMap (map (totalH g1 g2)) (toList mappings)
   in solveF hamiltonians
+

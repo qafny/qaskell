@@ -7,12 +7,12 @@ module DSL.Solve
   ,foldWeighted
   ,getWeight
   ,IntWeighted
+  ,unWeighted
   ,generateChoices
-  ,generateChoicesFromList
-  ,generateChoicesForIsomorphism
   ,sqrtEnergy
   ,energy
   ,solveF
+  ,ChoiceStrategy
   )
   where
 
@@ -20,6 +20,7 @@ import Control.Monad
 import Data.Proxy
 import Data.List (permutations)
 import DSL.AdjMatrix
+import Lib (Choice(Choice))
 
 ------------------------------------------------------------------------------
 -- We are given some traversable data structure. Basic examples include
@@ -53,6 +54,9 @@ foldWeighted f (Weighted w v) = f w v
 getWeight :: Weighted a b -> a
 getWeight = foldWeighted (\x _ -> x)
 
+unWeighted :: IntWeighted a -> a
+unWeighted (Weighted _ value) = value
+
 type IntWeighted = Weighted Int
 
 ------------------------------------------------------------------------------
@@ -63,22 +67,28 @@ type IntWeighted = Weighted Int
 -- data structure with a MonadPlus operation representing (weighted) choices.
 -- For now we use integers to represent the weights.
 
-generateChoices :: (MonadPlus m, Traversable t) => 
-                   Int -> Int -> t a -> m (t (IntWeighted a))
-generateChoices d1 d2 struct = generateChoicesFromList [d1, d2] struct
+type ChoiceStrategy m t a b = t a -> m (t b)
 
-generateChoicesFromList :: (MonadPlus m, Traversable t) => 
-                   [b] -> t a -> m (t (Weighted b a))
-generateChoicesFromList ds struct =
-  traverse (\a -> msum (map (go a) ds)) struct
-  where
-    go a d = return (Weighted d a)
+generateChoices :: (Monad m, Traversable t) =>
+                   ChoiceStrategy m t a b -> t a -> m (t b)
+generateChoices strategy struct = strategy struct
+
+-- generateChoices :: (MonadPlus m, Traversable t) => 
+--                    Int -> Int -> t a -> m (t (IntWeighted a))
+-- generateChoices d1 d2 struct = generateChoicesFromList [d1, d2] struct
+
+-- generateChoicesFromList :: (MonadPlus m, Traversable t) => 
+--                    [b] -> t a -> m (t (Weighted b a))
+-- generateChoicesFromList ds struct =
+--   traverse (\a -> msum (map (go a) ds)) struct
+--   where
+--     go a d = return (Weighted d a)
 
 -- Specialized for graph isomorphism
-generateChoicesForIsomorphism :: (MonadPlus m) => Int -> m [IntWeighted Int]
-generateChoicesForIsomorphism numNodes =
-  let perms = permutations [0 .. numNodes - 1]
-  in msum (map (\perm -> return (zipWith Weighted perm [0 .. numNodes - 1])) perms)
+-- generateChoicesForIsomorphism :: (MonadPlus m) => Int -> m [IntWeighted Int]
+-- generateChoicesForIsomorphism numNodes =
+--   let perms = permutations [0 .. numNodes - 1]
+--   in msum (map (\perm -> return (zipWith Weighted perm [0 .. numNodes - 1])) perms)
 
 -- Now that we generated all the choices we need to fold over the choices
 -- to choose the "minimum" one or more generally the one(s) satisfying
@@ -96,26 +106,3 @@ square x = x * x
 solveF :: (Foldable f, Ord a) =>
   f a -> a
 solveF = minimum
-
--- listWeights :: Traversable f => f a -> Choices (f (IntWeighted a))
--- listWeights = generateChoices 1 (-1)
-
-
----- Examples ----
-
-eqSum :: forall m. (Foldable m, MonadPlus m) =>
-  Proxy m -> -- This is just so that the m is unambiguous, since it isn't used in the rest of the type
-  [Int] ->
-  Int
-eqSum Proxy ns = solveF choices
-  where
-    choices :: m Int
-    choices = fmap components listElementChoices
-
-    listElementChoices :: m [IntWeighted Int]
-    listElementChoices = generateChoices 1 (-1) ns
-
-    components :: [IntWeighted Int] -> Int
-    components weightedElems =
-      sum (map (foldWeighted (*)) weightedElems)
-

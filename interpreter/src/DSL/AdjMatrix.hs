@@ -11,6 +11,8 @@ module DSL.AdjMatrix
   )
   where
 
+import Data.Maybe (isJust)
+
 newtype AdjMatrix a = AdjMatrix [[Maybe a]]
   deriving (Functor, Foldable)
 
@@ -31,7 +33,7 @@ getNodes (AdjMatrix adj) = map (const ()) adj
 
 getEdges :: Eq a => AdjMatrix a -> [(Int, Int)]
 getEdges (AdjMatrix rows) =
-  [(i, j) | (i, row) <- zip [0 ..] rows, (j, edge) <- zip [0 ..] row, edge /= Nothing]
+  [(i, j) | (i, row) <- zip [0 ..] rows, (j, edge) <- zip [0 ..] row, isJust edge]
 
 complementEdges :: Eq a => AdjMatrix a -> [(Int, Int)]
 complementEdges g@(AdjMatrix rows) =
