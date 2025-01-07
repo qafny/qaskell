@@ -31,4 +31,8 @@ instance Nesting a => Pretty (Tensor a) where
 
 instance Nesting a => Nesting (Tensor a) where
   prettyNested p = parensWhen (p < tensorPrecedence) . pretty
+  
+-- a is the amplitude, which is a complex number, b is the index variable, where we will allow to permit arbitrary adjacency.
+-- Anni is annihilation, Dag is a dagger of a MuQ term, Tens is a tensor, sum is a linear sum, and circ is the sequencing operation
+data SndQ a b = Anni a b | Dag (SndQ a b) | Tens (SndQ a b) (SndQ a b) | Sum (SndQ a b) (SndQ a b) | Circ (SndQ a b) (SndQ a b)
 

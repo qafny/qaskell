@@ -46,12 +46,12 @@ getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: 
 
 
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
-bindir     = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/bin"
-libdir     = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/lib/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0-6UUqPUDwk5pIQIFzq3m1XQ"
-dynlibdir  = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/lib/x86_64-linux-ghc-9.6.5"
-datadir    = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/share/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0"
-libexecdir = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/libexec/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0"
-sysconfdir = "/home/liyili2/project/ham_simulation_projects/qaskell_impl/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/etc"
+bindir     = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/bin"
+libdir     = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/lib/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0-6UUqPUDwk5pIQIFzq3m1XQ"
+dynlibdir  = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/lib/x86_64-linux-ghc-9.6.5"
+datadir    = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/share/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0"
+libexecdir = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/libexec/x86_64-linux-ghc-9.6.5/interpreter-0.1.0.0"
+sysconfdir = "/home/liyili2/project/ham_simulation_projects/qaskell/interpreter/.stack-work/install/x86_64-linux/17e1b7b71fe375bbdf074ecf10d39110afa32b717ba973f0d2ba2ea4b05d1ba7/9.6.5/etc"
 
 getBinDir     = catchIO (getEnv "interpreter_bindir")     (\_ -> return bindir)
 getLibDir     = catchIO (getEnv "interpreter_libdir")     (\_ -> return libdir)
