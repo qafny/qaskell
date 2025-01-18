@@ -36,7 +36,43 @@ instance Nesting a => Nesting (Tensor a) where
 -- Anni is annihilation, Dag is a dagger of a MuQ term, Tens is a tensor, sum is a linear sum, and circ is the sequencing operation
 -- data SndQ a b = I | Anni a b | Dag (SndQ a b) | Tens (SndQ a b) (SndQ a b) | Sum (SndQ a b) (SndQ a b) | Circ (SndQ a b) (SndQ a b)
 
-data Spin x = KeepPos x | KeepNeg x | Swap [x].
+data Spin x = KeepPos x | KeepNeg x | Swap [x]
+
+data Univ s a = Univ {
+  sextract :: s -> a,
+  sval :: [s]
+}
+
+instance Functor (Univ s) where
+   fmap f (Univ xtract v) = Univ xtract (fmap f v)
+
+transfer f [] acc = (\x -> Univ f [])
+transfer f s = (\x -> if s = x then Univ f (tl s) else transfer f (tl s))
+
+instance Extend (Univ s) where
+  duplicate (Univ f s) = Univ (transfer f s) s
+
+instance Comonad (Univ s) where
+   extract :: Univ s a -> a
+   extract (Univ xtract v) = xtract v
+   
+-- (>>=) :: Univ s a -> (Univ s a -> b) -> Univ s b
+--   store@(Univ xtract v) >>= f = 
+ --      let b = f store
+--           xtract' s = f (Univ xtract s) 
+--       in Univ b xtract'
+       
+--define examples, Univ s (), 
+-- Clique Finding
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [KeepPos x, KeepPos y]))
+
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [Swap [x,y]]))
+
+--Equal Sum
+let sd = sval d in sd <&> (\x -> [Swap [x]])
+
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [KeepPos x, KeepPos y]))
+
 
 -- Selection step:  Sel = Gen x . Sel: for each data-structure, we create an x to represent a site.
 -- We could do Gen x. Gen y . , where we create x represent a site, and create y representing another site that is not x.
@@ -64,12 +100,14 @@ Sel x = Gen x . Sel x | Spin x | Sel x || Sel x
 
 -- Second problem is with the parallel operation, it means the sum Sel x + Sel x, should I allow it here, or should I put it in the library
 -- and say that every allowed selection is ||_n (Sel x), like n parallel operations over Sel x.
+-- the simplest case of a datatype for the Spin could be a list or a Stream
+-- or we could use cellular automaton
+
 
 -- genChoice then could become taking the Spin expression V x and map the expression onto all the sites in a system.
 -- the problem is with the type
-type of Gen x . v -> m a -> (a -> b) -> m b.
-
-type of Gen x. Gen y. v -> m a -> (a -> a -> b) -> m b
+-- type of Gen x . v -> m a -> (a -> b) -> m b.
+-- type of Gen x. Gen y. v -> m a -> (a -> a -> b) -> m b
 
 -- Energy step is to add penalties to amplitudes
 -- This step is applied to the Spin level. For each Spin operation, we apply a operation dealing with the existing amplitude
