@@ -43,6 +43,9 @@ data Univ s a = Univ {
   sval :: [s]
 }
 
+instance Foldable (Univ s a) where
+  foldM f (Univ xtract v) = Univ xtract (foldr f v)
+
 instance Functor (Univ s) where
    fmap f (Univ xtract v) = Univ xtract (fmap f v)
 
@@ -62,16 +65,59 @@ instance Comonad (Univ s) where
 --           xtract' s = f (Univ xtract s) 
 --       in Univ b xtract'
        
---define examples, Univ s (), 
--- Clique Finding
-let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [KeepPos x, KeepPos y]))
+--define examples, Univ s (), returns Univ ([Spin s]) () , 
+-- Clique Finding, 
+-- Gen x. Gen y. KeepPos x . KeepPos y
+-- Gen x. Gen y. Swap [x,y]
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> (((sextract dd) x) <&> (\y -> [KeepPos x, KeepPos y])))
 
-let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [Swap [x,y]]))
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> (((sextract dd) x) <&> (\y -> [Swap [x,y]])))
 
---Equal Sum
-let sd = sval d in sd <&> (\x -> [Swap [x]])
+--Equal Sum, 
+-- Gen x. Swap [x]
+-- ID
+let sd = sval d in sd <&> (\x -> duplicate [Swap [x]])
 
-let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> (\y -> [KeepPos x, KeepPos y]))
+--ID is implemented as 
+
+let dd = duplicate d in let sd = sval dd in sd <&> (\x -> [KeepPos x]) ++ sd <&> (\x -> [KeepNeg x])
+
+--Exact Cover
+let sd = sval d in sd <&> (\x -> duplicate [Swap [x]])
+
+let ddd = duplicate duplicate d in let sd = sval dd in
+     sd <&> (\x -> (((sextract dd) x) <&> (\y -> ((sextract dd) x) <&> (\z -> append [KeepPos x, KeepNeg y, KeepNeg z] 
+                       (append [KeepNeg x, KeepPos y, KeepNeg z] [KeepNeg x, KeepNeg y, KeepPos z])))))
+                 
+-- Amp adding steps
+
+-- Clique Finding, 
+--AppAmp (KeepPos x . KeepPos y) = if g(x,y) then (* 0) else ID -- load the edge weight between x and y
+--Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
+appAmp dd = foldM (dd <&> (\x -> ((sextract dd) x) <&> (\y -> (aux y, y)))) dd 1
+  where aux [KeepPos x, KeepPos y] = if g(x,y) then (*0) else (*1)
+
+--equal sum example, just access the x-th element.
+-- In (+) operation forall case, ID means (+0)
+--AppAmp (KeepPos x) = g(x)
+--AppAmp (KeepNeg x) = - g(x)
+--Forall (+) AppAmp 0. -- the equal sum example has a sum of all AppAmp
+
+appAmp dd = foldM (dd <&> (\x -> ((sextract dd) x) <&> (\y -> (aux y, y)))) dd 0
+  where aux [KeepPos x] = (+ (g(x))) 
+        aux [KeepNeg x] = (+ (- g(x)))
+  
+  
+-- Exact Cover, 
+--AppAmp (KeepPos x. KeepNeg y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
+--AppAmp (KeepNeg x. KeepPos y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
+--AppAmp (KeepNeg x. KeepNeg y. KeepPos z) = if h(x,y,z) then (* 0) else ID
+
+--Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
+appAmp dd = foldM (dd <&> (\x -> ((sextract dd) x) <&> (\y -> (aux y, y)))) dd 1
+  where aux [KeepPos x, KeepNeg y, KeepNeg z] = if h(g(x),g(y),g(z)) then (* 0) else (*1)
+        aux [KeepNeg x, KeepPos y, KeepNeg z] = if h(g(x),g(y),g(z)) then (* 0) else (*1)
+        aux [KeepNeg x, KeepNeg y, KeepPos z] = if h(g(x),g(y),g(z)) then (* 0) else (*1)
 
 
 -- Selection step:  Sel = Gen x . Sel: for each data-structure, we create an x to represent a site.
@@ -84,19 +130,19 @@ let dd = duplicate d in let sd = sval dd in sd <&> (\x -> ((sextract dd) x) <&> 
 -- Gen x. Gen y. Swap [x,y] --> ? meaning that x and y can only be 01 or 10, they cannot be 11, or 00
 
 --Clique finding  having two
-Gen x. Gen y. KeepPos x . KeepPos y
-Gen x. Gen y. Swap [x,y]
+-- Gen x. Gen y. KeepPos x . KeepPos y
+-- Gen x. Gen y. Swap [x,y]
 
 --Equal Sum
 -- in gen choice step, ID means Identity matrix, which means KeepPos x || KeepNeg x
-Gen x. Swap [x]
-ID
+-- Gen x. Swap [x]
+-- ID
 
 -- Exact Cover
-Gen x. Swap [x]
-ID
+-- Gen x. Swap [x]
+-- ID
 
-Sel x = Gen x . Sel x | Spin x | Sel x || Sel x
+-- Sel x = Gen x . Sel x | Spin x | Sel x || Sel x
 
 -- Second problem is with the parallel operation, it means the sum Sel x + Sel x, should I allow it here, or should I put it in the library
 -- and say that every allowed selection is ||_n (Sel x), like n parallel operations over Sel x.
@@ -114,30 +160,24 @@ Sel x = Gen x . Sel x | Spin x | Sel x || Sel x
 -- The assumption is that there is an existing energy. And the energy manipulation is to apply to an energy
 -- for example, to implement the Z gate, we apply a negative operation to the existing amplitude
 -- for the unspecified cases, the amplitude is identity
-AppAmp (KeepPos x) = (-)
+-- AppAmp (KeepPos x) = (-)
 
 -- In clique finding step, we need to access the edges between x and y
 -- In (*) operation forall case, ID means (*1)
-AppAmp (KeepPos x . KeepPos y) = if g(x,y) then (* 0) else ID -- load the edge weight between x and y
+-- AppAmp (KeepPos x . KeepPos y) = if g(x,y) then (* 0) else ID -- load the edge weight between x and y
 
 
-Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
+-- Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
 
---equal sum example, just access the x-th element.
--- In (+) operation forall case, ID means (+0)
-AppAmp (KeepPos x) = g(x)
-AppAmp (KeepNeg x) = - g(x)
 
-Forall (+) AppAmp 0. -- the equal sum example has a sum of all AppAmp
 
 
 --exact cover example, accesses three sites, x, y, z.
 --the exact cover is just saying, there exists a h
-AppAmp (KeepPos x. KeepNeg y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
-AppAmp (KeepNeg x. KeepPos y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
-AppAmp (KeepNeg x. KeepNeg y. KeepPos z) = if h(x,y,z) then (* 0) else ID
-
-Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
+--AppAmp (KeepPos x. KeepNeg y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
+--AppAmp (KeepNeg x. KeepPos y. KeepNeg z) = if h(x,y,z) then (* 0) else ID
+--AppAmp (KeepNeg x. KeepNeg y. KeepPos z) = if h(x,y,z) then (* 0) else ID
+--Forall (*) AppAmp 1. -- the equal sum example has a sum of all AppAmp
 
 
 
