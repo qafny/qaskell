@@ -13,13 +13,13 @@ import DSL.AdjMatrix
 import DSL.Solve
 
 graphColoring :: forall color m a. (Eq color, Foldable m, MonadPlus m) => Proxy m -> [color] -> AdjMatrix a -> Int
-graphColoring Proxy colors adj =
+graphColoring Proxy colors0 adj =
   let
     nodes :: [()]
     nodes = getNodes adj
 
     choices :: m [((), [color])]
-    choices = generateChoices @m (defaultListStrategy (allCombinations colors)) nodes
+    choices = generateChoices @m (defaultListStrategy (allCombinations colors0)) nodes
 
     calcHA ((), colors) = square (1 - length colors)
 
