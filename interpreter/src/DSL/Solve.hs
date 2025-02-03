@@ -13,6 +13,7 @@ module DSL.Solve
   ,energy
   ,solveF
   ,ChoiceStrategy
+  ,defaultListStrategy
   )
   where
 
@@ -72,6 +73,11 @@ type ChoiceStrategy m t a b = t a -> m (t b)
 generateChoices :: (Monad m, Traversable t) =>
                    ChoiceStrategy m t a b -> t a -> m (t b)
 generateChoices strategy struct = strategy struct
+
+defaultListStrategy :: (Traversable t, MonadPlus m) => [b] -> ChoiceStrategy m t a (a, b)
+defaultListStrategy ds = traverse (\a -> msum (map (go a) ds))
+  where
+    go a d = return (a, d)
 
 -- generateChoices :: (MonadPlus m, Traversable t) => 
 --                    Int -> Int -> t a -> m (t (IntWeighted a))

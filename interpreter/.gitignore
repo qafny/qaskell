@@ -1,6 +1,7 @@
 dist-newstyle
 *.prof
 .vscode/
+.stack-work/
 *.aux
 *.log
 *.pdf
