@@ -10,7 +10,7 @@ module AdjMatrix
   where
 
 newtype AdjMatrix a = AdjMatrix [[Maybe a]]
-  deriving (Functor, Foldable)
+  deriving (Functor, Foldable, Show)
 
 instance Traversable AdjMatrix where
   traverse f (AdjMatrix rows) = fmap AdjMatrix $ traverse (traverse (traverse f)) rows
@@ -27,6 +27,17 @@ completeGraph nodes =
 getNodes :: AdjMatrix a -> [()]
 getNodes (AdjMatrix adj) = map (const ()) adj
 
+-- | Example:
+--   let a = [ [Just (), Just (), Just ()]
+--           , [Just (), Just (), Just ()]
+--           , [Nothing, Just (), Just ()]
+--           ]
+--
+--   ghci> updateNodeContents [1,2,3] a
+--   [ [ Just (1,1), Just (1,2), Just (1,3) ]
+--   , [ Just (2,1), Just (2,2), Just (2,3) ]
+--   , [ Nothing,    Just (3,2), Just (3,3) ]
+--   ]
 updateNodeContents :: AdjMatrix a -> [b] -> AdjMatrix (b, b)
 updateNodeContents (AdjMatrix adj) nodes =
   AdjMatrix $
