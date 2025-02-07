@@ -70,8 +70,7 @@ type IntWeighted = Weighted Int
 
 type ChoiceStrategy m t a b = t a -> m (t b)
 
-generateChoices :: (Monad m, Traversable t) =>
-                   ChoiceStrategy m t a b -> t a -> m (t b)
+generateChoices :: (Monad m, Comonad t, Traversable t) => (a -> m b) -> t a -> m (t b)
 generateChoices strategy struct = strategy struct
 
 defaultListStrategy :: (Traversable t, MonadPlus m) => [b] -> ChoiceStrategy m t a (a, b)
