@@ -9,11 +9,37 @@ module DSL.Syntax
   where
 
 import Control.Monad.Identity
+import Control.Monad
 import Data.Coerce
-import Data.List (intersect)
+import Data.List (intersect, minimumBy)
+import Data.Ord
 
-data Super a = GenerateChoices [a]
-  deriving (Show)
+-- data Super a = GenerateChoices [a] (a -> a)
+
+data Super t a b energy where
+  GenerateChoices ::
+    t a -> -- | Input to original problem
+    [b] -> -- | Choices
+    -- (t (b, a) -> t c) -> -- | Setup initial state, which we use to produce a `m (t c)` internally
+    (t (b, a) -> energy) -> -- | What we map over the initial state
+    Super t a b energy
+
+type SuperEval t m a b energy =
+  Super t a b energy -> m (t a)
+
+classicalEval :: forall t m a b energy. (MonadPlus m, Foldable m, Traversable t, Ord energy) =>
+  SuperEval t m a b energy
+classicalEval (GenerateChoices input choiceVals f) =
+  let choices = generateChoicesFromList @m choiceVals input
+  in
+  pure $ fmap snd $ minimumBy (comparing f) choices
+
+generateChoicesFromList :: (MonadPlus m, Traversable t) => 
+                   [b] -> t a -> m (t (b, a))
+generateChoicesFromList ds struct =
+  traverse (\a -> msum (map (go a) ds)) struct
+  where
+    go a d = return (d, a)
 
 data Expr a where
   Lit :: Int -> Expr Int
@@ -26,9 +52,9 @@ data Expr a where
   Length :: Expr [a] -> Expr Int
   ListMap :: (Expr a -> Expr b) -> Expr [a] -> Expr [b]
 
-  Gen :: Super a -> Expr (Super a)
-  ChoiceMap :: (Expr a -> Expr b) -> Expr (Super a) -> Expr (Super b)
-  Solve :: Super a -> Expr a
+  -- Gen :: Super a -> Expr (Super a)
+  -- ChoiceMap :: (Expr a -> Expr b) -> Expr (Super a) -> Expr (Super b)
+  -- Solve :: Super a -> Expr a
 
   Adjacency :: Structure Expr f => Expr (f a) -> Expr (f (a, a))
 

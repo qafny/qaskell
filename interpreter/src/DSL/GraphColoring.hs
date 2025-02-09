@@ -35,7 +35,7 @@ graphColoring Proxy colors0 adj =
     computeComponents :: [((), [color])] -> Int
     computeComponents nodeWeights =
       let adj' :: AdjMatrix (((), [color]), ((), [color]))
-          adj' = updateNodeContents adj nodeWeights -- TODO: Does this make sense in the quantum setting?
+          adj' = updateNodeContents' adj nodeWeights -- TODO: Does this make sense in the quantum setting?
       in
       sum (fmap calcHA nodeWeights) + sum (fmap calcHB adj')
 
@@ -50,7 +50,7 @@ allCombinations :: [a] -> [[a]]
 allCombinations = subsequences
 
 graphColoringGeneral :: forall color m a. (Eq color, Foldable m, MonadPlus m) =>
-  Proxy m -> Expr [color] -> Expr (AdjMatrix a) -> Expr Int
+  Proxy m -> Expr [color] -> Expr (AdjMatrix a) -> Super (Expr Int)
 graphColoringGeneral Proxy colors0 adj =
   let
     nodes :: Expr [()]
@@ -77,7 +77,7 @@ graphColoringGeneral Proxy colors0 adj =
 
     components = fmap computeComponents choices
   in
-  Solve undefined
+  -- Solve undefined
   where
     square x = x * x
 
