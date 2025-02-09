@@ -31,6 +31,7 @@ library
       DSL.GraphIso
       DSL.Solve
       DSL.Tensor
+      DSL.Syntax
       Eval
       Eval2
       Eval3
