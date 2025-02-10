@@ -1,8 +1,5 @@
 module H.QC where
 
-import Data.List (minimumBy)
-import Data.Ord (comparing)
-
 -- Representing spin variables s_i in terms of Pauli Z operators.
 -- We will use qubit |0> to represent s_i = +1 and |1> for s_i = -1.
 data Spin = Spin Int  -- Spin i represents s_i
@@ -111,26 +108,10 @@ evaluateHamiltonian :: [Int] -> Double
 evaluateHamiltonian spins =
   (sum $ zipWith (*) (map fromIntegral spins) [1.0, 2.0, 2.0, 3.0]) ^ 2
 
--- Generate all possible spin configurations (s_i in {+1, -1}).
-genChoices :: [[Int]]
-genChoices = sequence (replicate 4 [1, -1])
-
--- Find the spin configuration that minimizes the Hamiltonian.
-solve :: [[Int]] -> ([Int], Double)
-solve configs =
-  minimumBy (\(_, h1) (_, h2) -> compare h1 h2) [(config, evaluateHamiltonian config) | config <- configs]
-
 -- Main function to generate the circuit and display the solution.
 main :: IO ()
 main = do
-  -- Step 1: Find the optimal configuration.
-  let configs = genChoices
-  let (optimalConfig, minValue) = solve configs
-
-  putStrLn $ "Optimal configuration: " ++ show optimalConfig
-  putStrLn $ "Minimum Hamiltonian value: " ++ show minValue
-
-  -- Step 2: Generate the quantum circuit with trotterization.
+  -- Step 1: Generate the quantum circuit with trotterization.
   -- Parameters: gamma = 0.5, beta = 0.3, total time T = 10.0, trotter steps = 100
   let gamma = 0.5
   let beta = 0.3
@@ -138,7 +119,7 @@ main = do
   let trotterSteps = 1
   let circuit = generateQuantumCircuit gamma beta totalTime trotterSteps initialHamiltonian
 
-  -- Step 3: Display the generated quantum circuit.
+  -- Step 2: Display the generated quantum circuit.
   putStrLn "\nGenerated Quantum Circuit:"
   mapM_ putStrLn circuit
 
