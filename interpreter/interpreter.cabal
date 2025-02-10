@@ -50,9 +50,9 @@ library
       H.EnQ.Ising.GraphPartition
       H.EnQ.Ising.Ising
       H.EnQ.Ising.NumberPartition
-      H.Example
       H.GraphPartition
       H.NumberPartition
+      H.QC
       H.Simulator
       Lib
   other-modules:

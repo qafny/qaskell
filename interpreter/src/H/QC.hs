@@ -1,4 +1,4 @@
-module H.Example where
+module H.QC where
 
 import Data.List (minimumBy)
 import Data.Ord (comparing)
@@ -134,8 +134,8 @@ main = do
   -- Parameters: gamma = 0.5, beta = 0.3, total time T = 10.0, trotter steps = 100
   let gamma = 0.5
   let beta = 0.3
-  let totalTime = 10.0
-  let trotterSteps = 100
+  let totalTime = 1.0
+  let trotterSteps = 1
   let circuit = generateQuantumCircuit gamma beta totalTime trotterSteps initialHamiltonian
 
   -- Step 3: Display the generated quantum circuit.
