@@ -27,15 +27,33 @@ library
   exposed-modules:
       AdjMatrix
       DSL.AdjMatrix
+      DSL.EqSum
       DSL.Examples
+      DSL.GraphColoring
       DSL.GraphIso
+      DSL.LowLevel
+      DSL.MinSpanTree
       DSL.Solve
-      DSL.Tensor
+      DSL.Super.Simulated
       DSL.Syntax
+      DSL.Tensor
+      DSL.Utils
       Eval
       Eval2
       Eval3
       Example
+      H.AQC
+      H.EnQ.AdiabaticEvolution
+      H.EnQ.Clique
+      H.EnQ.ExactCover
+      H.EnQ.Ising.Cliques
+      H.EnQ.Ising.GraphPartition
+      H.EnQ.Ising.Ising
+      H.EnQ.Ising.NumberPartition
+      H.Example
+      H.GraphPartition
+      H.NumberPartition
+      H.Simulator
       Lib
   other-modules:
       Paths_interpreter
@@ -43,15 +61,10 @@ library
       Paths_interpreter
   hs-source-dirs:
       src
-  default-extensions: DeriveFunctor, DeriveFoldable
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       QuickCheck >=2.14
     , base >=4.7 && <5
-    , mtl
-    , prettyprinter
-    , random-fu
-    , mwc-random
   default-language: Haskell2010
 
 executable interpreter-exe
