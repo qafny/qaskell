@@ -159,8 +159,22 @@ eqSumExampleInstance =
   runSuper (eqSumExample [7, 5, 10])
 
 eqSumExampleInstanceClassical :: [Integer]
-eqSumExampleInstanceClassical =
-  eqSumExample [7, 5]
+eqSumExampleInstanceClassical = do
+  let choices :: [Integer]
+      expr :: Expr Integer
+      (choices, expr) = runSuper $ eqSumExample [7, 5]
+
+      freeVars = getFreeVars expr
+
+      sbsts :: [Subst Integer]
+      sbsts = mkVarSubst freeVars choices
+
+  sbst <- sbsts
+  pure $ eval sbst expr
+
+mkVarSubst :: [VarId] -> [a] -> [Subst a]
+mkVarSubst freeVars choices =
+  traverse (\var -> sequenceA (var, map Lit choices)) freeVars
 
 data Expr a where
   -- Var :: [a] -> VarId -> Expr a
@@ -187,6 +201,24 @@ deriving instance Show a => Show (Expr a)
 deriving instance Eq a => Eq (Expr a)
 deriving instance Ord a => Ord (Expr a)
 
+eval :: Subst a -> Expr a -> a
+eval sbst = go . substs sbst
+  where
+    go (Var v) = error $ "eval: Expression has free variable not contained in substitution/environment: " ++ show v
+    go (Lit x) = x
+    go (Add x y) = go x + go y
+    go (Sub x y) = go x - go y
+    go (Mul x y) = go x * go y
+
+getFreeVars :: Expr a -> [VarId]
+getFreeVars = Set.toList . go
+  where
+    go (Var v) = Set.singleton v
+    go (Lit _) = mempty
+    go (Add x y) = go x <> go y
+    go (Sub x y) = go x <> go y
+    go (Mul x y) = go x <> go y
+
 subst :: VarId -> Expr a -> Expr a -> Expr a
 subst var substExpr = go
   where
@@ -200,7 +232,9 @@ subst var substExpr = go
         Sub x y -> Sub (go x) (go y)
         Mul x y -> Mul (go x) (go y)
 
-substs :: [(VarId, Expr a)] -> Expr a -> Expr a
+type Subst a = [(VarId, Expr a)]
+
+substs :: Subst a -> Expr a -> Expr a
 substs sbst e = foldr (\(var, substExpr) e' -> subst var substExpr e') e sbst
 
 instance Num (Expr Integer) where
