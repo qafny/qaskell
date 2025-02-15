@@ -214,6 +214,25 @@ graphColoringExample colorCount adj = do
       in
       sum $ fmap edgeCalculation adj'
 
+cliqueExample :: forall a c m. (Num c, GenChoices m Int c) =>
+  Int -> AdjMatrix a -> m c
+cliqueExample cliqueSize adj = do
+    choice <- map snd <$> genChoices' @_ @_ @c [0, 1 :: Int] nodes
+    pure (fromIntegral ((cliqueSize * (cliqueSize - 1)) `div` 2) * go choice)
+  where
+    nodes :: [()]
+    nodes = getNodes adj
+
+    edgeCalculation :: (c, c) -> c
+    edgeCalculation (node1In, node2In) = node1In * node2In
+
+    go :: [c] -> c
+    go cliqueNodeChoices =
+      let adj' :: AdjMatrix (c, c)
+          adj' = upperDiagonal $ updateNodeContents adj cliqueNodeChoices
+      in
+      sum $ fmap edgeCalculation adj'
+
 mkVarSubst :: [VarId] -> [a] -> [Subst a]
 mkVarSubst freeVars choices =
   traverse (\var -> sequenceA (var, map Lit choices)) freeVars
