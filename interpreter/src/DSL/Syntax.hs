@@ -182,6 +182,9 @@ getBits bitSize x = go bitSize
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
 
+-- | Example:
+-- ghci> runClassical (graphColoringExample 3 graph1) :: [Int]
+--
 graphColoringExample :: forall a c m. (GetBit c, Num c, GenChoices m Int c) =>
   Int -> AdjMatrix a -> m c
 graphColoringExample colorCount adj = do
