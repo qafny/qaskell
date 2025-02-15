@@ -5,11 +5,11 @@
 module DSL.AdjMatrix
   (AdjMatrix(..)
   ,adjMatrix
+  ,upperDiagonal
   ,completeGraph
   ,getNodes
   ,getEdges
   ,complementEdges
-  ,updateNodeContents'
   ,updateNodeContents
   )
   where
@@ -19,30 +19,41 @@ import Control.Monad.Identity
 import Control.Monad
 import Data.List
 
-import DSL.Syntax
+-- import DSL.Syntax
 
 newtype AdjMatrix a = AdjMatrix [[Maybe a]]
-  deriving (Functor, Foldable)
+  deriving (Functor, Foldable, Show)
 
-instance Zippable Identity AdjMatrix where
-  fill xs =
-    fmap (fmap fst) . fillPair xs
+-- instance Zippable Identity AdjMatrix where
+--   fill xs =
+--     fmap (fmap fst) . fillPair xs
 
-  transposeFillPair xs (Identity (AdjMatrix adj)) =
-    let Identity (AdjMatrix newAdj) = fillPair xs (Identity (AdjMatrix (transpose adj)))
-    in
-    Identity (AdjMatrix (transpose newAdj))
+--   transposeFillPair xs (Identity (AdjMatrix adj)) =
+--     let Identity (AdjMatrix newAdj) = fillPair xs (Identity (AdjMatrix (transpose adj)))
+--     in
+--     Identity (AdjMatrix (transpose newAdj))
 
-  fillPair (Identity xs) (Identity (AdjMatrix adj)) =
-    Identity $
-    AdjMatrix
-      (map (\row -> zipWith (\curr newNode -> fmap (newNode,) curr)
-                            row
-                            xs)
-           adj)
+--   fillPair (Identity xs) (Identity (AdjMatrix adj)) =
+--     Identity $
+--     AdjMatrix
+--       (map (\row -> zipWith (\curr newNode -> fmap (newNode,) curr)
+--                             row
+--                             xs)
+--            adj)
 
 instance Traversable AdjMatrix where
   traverse f (AdjMatrix rows) = AdjMatrix <$> traverse (traverse (traverse f)) rows
+
+-- | Remove everything except the upper diagonal. We don't lose information
+-- because an adjacency matrix of an undirected graph must be symmetric
+--
+-- We use this so that we don't encounter an edge twice.
+upperDiagonal :: AdjMatrix a -> AdjMatrix a
+upperDiagonal (AdjMatrix rows) =
+  AdjMatrix $ zipWith nothingDrop [0..length rows] rows
+  where
+    nothingDrop 0 xs = xs
+    nothingDrop n (_:xs) = Nothing : nothingDrop (n-1) xs
 
 adjMatrix :: [[Maybe a]] -> AdjMatrix a
 adjMatrix = AdjMatrix
@@ -64,22 +75,32 @@ complementEdges :: Eq a => AdjMatrix a -> [(Int, Int)]
 complementEdges g@(AdjMatrix rows) =
   [(i, j) | i <- [0 .. length rows - 1], j <- [0 .. length rows - 1], i /= j, (i, j) `notElem` getEdges g]
 
--- updateNodeContents :: AdjMatrix a -> [b] -> AdjMatrix (b, b)
-updateNodeContents' :: AdjMatrix a -> [b] -> AdjMatrix (b, b)
-updateNodeContents' adj xs =
-  runIdentity (updateNodeContents (Identity adj) (Identity xs))
+updateNodeContents :: AdjMatrix a -> [b] -> AdjMatrix (b, b)
+updateNodeContents (AdjMatrix adj) nodes =
+  AdjMatrix $
+  zipWith (\x row ->
+              zipWith (\y entry ->
+                          fmap (const (x, y)) entry)
+                      nodes
+                      row)
+          nodes
+          adj
 
-updateNodeContents :: Zippable f g =>
-  f (g a) -> f [b] -> f (g (b, b))
-updateNodeContents adj nodes =
-  transposeFillPair nodes (fill nodes adj)
-  -- zipWithList (\x row ->
-  --             undefined $ zipWithList (\y entry ->
-  --                           fmap (const (x, y)) entry)
-  --                     _
-  --                     row)
-  --         nodes
-  --         undefined
+-- updateNodeContents' :: AdjMatrix a -> [b] -> AdjMatrix (b, b)
+-- updateNodeContents' adj xs =
+--   zipWith
+
+-- updateNodeContents :: Zippable f g =>
+--   f (g a) -> f [b] -> f (g (b, b))
+-- updateNodeContents adj nodes =
+--   transposeFillPair nodes (fill nodes adj)
+--   -- zipWithList (\x row ->
+--   --             undefined $ zipWithList (\y entry ->
+--   --                           fmap (const (x, y)) entry)
+--   --                     _
+--   --                     row)
+--   --         nodes
+--   --         undefined
 
 -- chooseNodeContents :: Functor f =>
 --   AdjMatrix (a, a) ->

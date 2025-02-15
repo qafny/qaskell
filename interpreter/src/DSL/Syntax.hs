@@ -22,6 +22,11 @@ import Data.List (intersect, minimumBy)
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Data.Ord
+import Data.Bits
+import Data.List
+
+import DSL.AdjMatrix
+import DSL.Examples
 
 -- data Super a = GenerateChoices [a] (a -> a)
 
@@ -96,12 +101,8 @@ class FromList a b | b -> a where
 instance FromList a [a] where
   convertFromList x = x
 
-instance Ord a => FromList a (Super a (Expr b)) where
-
-  convertFromList :: [a] -> Super a (Expr b)
-  convertFromList xs = Super $ WriterT $ do
-    v <- fresh
-    pure (Var v, Set.fromList xs)
+-- instance Ord a => FromList (Expr a) (Expr [a]) where
+--   convertFromList = List
 
 -- instance FromList w (Super w a w) where
 --   convertFromList xs = Super xs _
@@ -146,31 +147,65 @@ generateChoicesFromList ds struct =
   --   go :: a -> b -> (b, a)
   --   go a d = (d, a)
 
-eqSumExample :: forall c m. (Num c, GenChoices m Integer c) =>
-  [Integer] -> m c
+eqSumExample :: forall c m. (Num c, GenChoices m Int c) =>
+  [Int] -> m c
 eqSumExample inputList = do
-  choice <- genChoices' @_ @_ @c [-1, 1] inputList
+  choice <- genChoices' @_ @_ @c [-1, 1 :: Int] inputList
 
-  let multiplied = map (\(x, y) -> fromInteger x * y) choice
+  let multiplied = map (\(x, y) -> fromIntegral x * y) choice
   pure $ sum multiplied
 
-eqSumExampleInstance :: ([Integer], Expr Integer)
-eqSumExampleInstance =
-  runSuper (eqSumExample [7, 5, 10])
-
-eqSumExampleInstanceClassical :: [Integer]
-eqSumExampleInstanceClassical = do
-  let choices :: [Integer]
-      expr :: Expr Integer
-      (choices, expr) = runSuper $ eqSumExample [7, 5]
-
+runClassical :: forall b c. Super c (Expr c) -> [c]
+runClassical act = do
+  let (choices, expr) = runSuper act
       freeVars = getFreeVars expr
 
-      sbsts :: [Subst Integer]
       sbsts = mkVarSubst freeVars choices
 
   sbst <- sbsts
   pure $ eval sbst expr
+
+eqSumExampleInstance :: ([Int], Expr Int)
+eqSumExampleInstance =
+  runSuper (eqSumExample [7, 5, 10])
+
+eqSumExampleInstanceClassical :: [Int]
+eqSumExampleInstanceClassical = runClassical (eqSumExample [7, 5])
+
+getBits :: (Num a, GetBit a) => Int -> a -> [a]
+getBits bitSize x = go bitSize
+  where
+    go 0 = []
+    go i =
+      getBit x i : go (i-1)
+
+neededBitSize :: Int -> Int
+neededBitSize = ceiling . logBase 2 . fromIntegral
+
+graphColoringExample :: forall a c m. (GetBit c, Num c, GenChoices m Int c) =>
+  Int -> AdjMatrix a -> m c
+graphColoringExample colorCount adj = do
+  choice <- map snd <$> genChoices' @_ @_ @c [0..colorCount-1] nodes
+  pure (go choice)
+  where
+    nodes :: [()]
+    nodes = getNodes adj
+
+    colorBitSize = neededBitSize colorCount
+
+    edgeCalculation :: (c, c) -> c
+    edgeCalculation (node1Color, node2Color) =
+      let node1ColorBits = getBits colorBitSize node1Color
+          node2ColorBits = getBits colorBitSize node2Color
+      in
+      sum (zipWith (*) node1ColorBits node2ColorBits)
+
+    go :: [c] -> c
+    go nodeColors =
+      let adj' :: AdjMatrix (c, c)
+          adj' = upperDiagonal $ updateNodeContents adj nodeColors
+      in
+      sum $ fmap edgeCalculation adj'
 
 mkVarSubst :: [VarId] -> [a] -> [Subst a]
 mkVarSubst freeVars choices =
@@ -180,9 +215,11 @@ data Expr a where
   -- Var :: [a] -> VarId -> Expr a
   Var :: VarId -> Expr a
   Lit :: a -> Expr a
-  Add :: Expr Integer -> Expr Integer -> Expr Integer
-  Sub :: Expr Integer -> Expr Integer -> Expr Integer
-  Mul :: Expr Integer -> Expr Integer -> Expr Integer
+  Add :: Expr Int -> Expr Int -> Expr Int
+  Sub :: Expr Int -> Expr Int -> Expr Int
+  Mul :: Expr Int -> Expr Int -> Expr Int
+
+  GetBit :: Expr Int -> Int -> Expr Int
 
   -- SumList :: [Expr Integer] -> Expr Integer
   -- Intersect :: Expr [a] -> Expr [a] -> Expr [a]
@@ -197,9 +234,9 @@ data Expr a where
 
   -- ToList :: Structure Expr f => Expr (f a) -> Expr [a]
 
-deriving instance Show a => Show (Expr a)
-deriving instance Eq a => Eq (Expr a)
-deriving instance Ord a => Ord (Expr a)
+-- deriving instance Show a => Show (Expr a)
+-- deriving instance Eq a => Eq (Expr a)
+-- deriving instance Ord a => Ord (Expr a)
 
 eval :: Subst a -> Expr a -> a
 eval sbst = go . substs sbst
@@ -209,6 +246,7 @@ eval sbst = go . substs sbst
     go (Add x y) = go x + go y
     go (Sub x y) = go x - go y
     go (Mul x y) = go x * go y
+    go (GetBit x i) = getBit (go x) i
 
 getFreeVars :: Expr a -> [VarId]
 getFreeVars = Set.toList . go
@@ -218,6 +256,7 @@ getFreeVars = Set.toList . go
     go (Add x y) = go x <> go y
     go (Sub x y) = go x <> go y
     go (Mul x y) = go x <> go y
+    go (GetBit x _) = go x
 
 subst :: VarId -> Expr a -> Expr a -> Expr a
 subst var substExpr = go
@@ -231,13 +270,26 @@ subst var substExpr = go
         Add x y -> Add (go x) (go y)
         Sub x y -> Sub (go x) (go y)
         Mul x y -> Mul (go x) (go y)
+        GetBit x i -> GetBit (go x) i
 
 type Subst a = [(VarId, Expr a)]
 
 substs :: Subst a -> Expr a -> Expr a
 substs sbst e = foldr (\(var, substExpr) e' -> subst var substExpr e') e sbst
 
-instance Num (Expr Integer) where
+class GetBit a where
+  getBit :: a -> Int -> a
+
+instance GetBit Int where
+  getBit x i =
+    if testBit x i
+    then 1
+    else 0
+
+instance GetBit (Expr Int) where
+  getBit = GetBit
+
+instance Num (Expr Int) where
   Lit 0 + y = y
   x + Lit 0 = x
   x + y = Add x y
@@ -254,7 +306,7 @@ instance Num (Expr Integer) where
 
   abs = error "Expr.abs"
   signum = error "Expr.signum"
-  fromInteger = Lit
+  fromInteger = Lit . fromInteger
 
 class Functor f => Zippable f g where
   -- zipWith' :: (a -> b -> c) -> f (g a) -> f (g b) -> f (g c)
