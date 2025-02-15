@@ -151,15 +151,19 @@ eqSumExample inputList = do
   let multiplied = map (\(x, y) -> fromInteger x * y) choice
   pure $ sum multiplied
 
+eqSumExampleInstance :: (Expr Integer, [Integer])
+eqSumExampleInstance =
+  runSuper (eqSumExample [7, 5])
+
 data Expr a where
   -- Var :: [a] -> VarId -> Expr a
   Var :: VarId -> Expr a
   Lit :: a -> Expr a
-  Add :: Expr Int -> Expr Int -> Expr Int
-  Sub :: Expr Int -> Expr Int -> Expr Int
-  Mul :: Expr Int -> Expr Int -> Expr Int
+  Add :: Expr Integer -> Expr Integer -> Expr Integer
+  Sub :: Expr Integer -> Expr Integer -> Expr Integer
+  Mul :: Expr Integer -> Expr Integer -> Expr Integer
 
-  SumList :: [Expr Int] -> Expr Int
+  SumList :: [Expr Integer] -> Expr Integer
   Intersect :: Expr [a] -> Expr [a] -> Expr [a]
   -- Length :: Expr [a] -> Expr Int
   -- ListMap :: (Expr a -> Expr b) -> Expr [a] -> Expr [b]
@@ -175,6 +179,14 @@ data Expr a where
 deriving instance Show a => Show (Expr a)
 deriving instance Eq a => Eq (Expr a)
 deriving instance Ord a => Ord (Expr a)
+
+instance Num (Expr Integer) where
+  (+) = Add
+  (*) = Mul
+  (-) = Sub
+  abs = error "Expr.abs"
+  signum = error "Expr.signum"
+  fromInteger = Lit
 
 class Functor f => Zippable f g where
   -- zipWith' :: (a -> b -> c) -> f (g a) -> f (g b) -> f (g c)
