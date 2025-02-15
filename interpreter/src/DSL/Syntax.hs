@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 
 module DSL.Syntax
   where
@@ -169,8 +170,8 @@ data Expr a where
   Sub :: Expr Integer -> Expr Integer -> Expr Integer
   Mul :: Expr Integer -> Expr Integer -> Expr Integer
 
-  SumList :: [Expr Integer] -> Expr Integer
-  Intersect :: Expr [a] -> Expr [a] -> Expr [a]
+  -- SumList :: [Expr Integer] -> Expr Integer
+  -- Intersect :: Expr [a] -> Expr [a] -> Expr [a]
   -- Length :: Expr [a] -> Expr Int
   -- ListMap :: (Expr a -> Expr b) -> Expr [a] -> Expr [b]
 
@@ -185,6 +186,22 @@ data Expr a where
 deriving instance Show a => Show (Expr a)
 deriving instance Eq a => Eq (Expr a)
 deriving instance Ord a => Ord (Expr a)
+
+subst :: VarId -> Expr a -> Expr a -> Expr a
+subst var substExpr = go
+  where
+    go =
+      \case
+        Var var'
+          | var' == var -> substExpr
+          | otherwise   -> Var var'
+        Lit x -> Lit x
+        Add x y -> Add (go x) (go y)
+        Sub x y -> Sub (go x) (go y)
+        Mul x y -> Mul (go x) (go y)
+
+substs :: [(VarId, Expr a)] -> Expr a -> Expr a
+substs sbst e = foldr (\(var, substExpr) e' -> subst var substExpr e') e sbst
 
 instance Num (Expr Integer) where
   Lit 0 + y = y
