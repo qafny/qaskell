@@ -63,8 +63,10 @@ fresh = do
 newtype Super w a = Super (WriterT (Set w) Fresh a)
   deriving (Functor, Applicative, Monad)
 
-runSuper :: Super w a -> (a, [w])
-runSuper (Super m) = fmap Set.toList $ runFresh $ runWriterT m
+runSuper :: Super w a -> ([w], a)
+runSuper (Super m) = swap $ fmap Set.toList $ runFresh $ runWriterT m
+  where
+    swap (a, b) = (b, a)
 
 -- type Super' w = Super w w
 
@@ -151,7 +153,7 @@ eqSumExample inputList = do
   let multiplied = map (\(x, y) -> fromInteger x * y) choice
   pure $ sum multiplied
 
-eqSumExampleInstance :: (Expr Integer, [Integer])
+eqSumExampleInstance :: ([Integer], Expr Integer)
 eqSumExampleInstance =
   runSuper (eqSumExample [7, 5])
 
