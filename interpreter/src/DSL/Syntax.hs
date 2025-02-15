@@ -155,7 +155,7 @@ eqSumExample inputList = do
 
 eqSumExampleInstance :: ([Integer], Expr Integer)
 eqSumExampleInstance =
-  runSuper (eqSumExample [7, 5])
+  runSuper (eqSumExample [7, 5, 10])
 
 eqSumExampleInstanceClassical :: [Integer]
 eqSumExampleInstanceClassical =
@@ -187,9 +187,20 @@ deriving instance Eq a => Eq (Expr a)
 deriving instance Ord a => Ord (Expr a)
 
 instance Num (Expr Integer) where
-  (+) = Add
-  (*) = Mul
-  (-) = Sub
+  Lit 0 + y = y
+  x + Lit 0 = x
+  x + y = Add x y
+
+  
+  x * Lit 1 = x
+  Lit 1 * y = y
+  _ * Lit 0 = Lit 0
+  Lit 0 * _ = Lit 0
+  x * y = Mul x y
+
+  x - Lit 0 = x
+  x - y = Sub x y
+
   abs = error "Expr.abs"
   signum = error "Expr.signum"
   fromInteger = Lit
