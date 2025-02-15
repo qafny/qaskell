@@ -157,6 +157,10 @@ eqSumExampleInstance :: ([Integer], Expr Integer)
 eqSumExampleInstance =
   runSuper (eqSumExample [7, 5])
 
+eqSumExampleInstanceClassical :: [Integer]
+eqSumExampleInstanceClassical =
+  eqSumExample [7, 5]
+
 data Expr a where
   -- Var :: [a] -> VarId -> Expr a
   Var :: VarId -> Expr a
