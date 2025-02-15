@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TupleSections #-}
 
 module DSL.Syntax
   where
@@ -57,6 +58,8 @@ fresh = do
   Fresh (modify (+1))
   pure curr
 
+-- TODO: Maybe we should use `StateT (Set w) ...` here instead of using
+-- WriterT.
 newtype Super w a = Super (WriterT (Set w) Fresh a)
   deriving (Functor, Applicative, Monad)
 
@@ -104,24 +107,29 @@ instance Ord a => FromList a (Super a (Expr b)) where
 --   [b] -> t a -> (t b -> r) -> r
 -- generateChoicesFromList ds stuct f = undefined
 
-class GenChoices f b where
+class Monad m => GenChoices m b c where
   genChoices' :: (Traversable t) =>
-    [b] -> t a -> f (t (Expr b))
+    [b] -> t a -> m (t (a, c))
 
-instance Ord b => GenChoices (Super b) b where
+instance Ord b => GenChoices (Super b) b (Expr b) where
   genChoices' = genChoicesQuantum
 
-instance GenChoices [] b where
+instance GenChoices [] b b where
   genChoices' ds struct = 
     traverse (\a -> msum (map (go a) ds)) struct
     where
-      go a d = return (Lit d)
+      go a d = return (a, d)
 
-genChoicesQuantum :: (Ord b, Traversable t) =>
-  [b] -> t a -> Super b (t (Expr b))
+genChoicesQuantum :: forall a b t. (Ord b, Traversable t) =>
+  [b] -> t a -> Super b (t (a, Expr b))
 genChoicesQuantum choices struct = Super $ do
   tell $ Set.fromList choices
-  lift $ traverse (const (fmap Var fresh)) struct
+  lift $ traverse go struct
+  where
+    go :: a -> Fresh (a, Expr b)
+    go x = do
+      v <- fresh
+      pure (x, Var v)
 
 generateChoicesFromList :: forall f t a b. (FromList b (f b), Applicative f, Traversable t) => 
                    [b] -> t a -> f (t b)
@@ -135,6 +143,14 @@ generateChoicesFromList ds struct =
   --   go :: a -> b -> (b, a)
   --   go a d = (d, a)
 
+eqSumExample :: forall c m. (Num c, GenChoices m Integer c) =>
+  [Integer] -> m c
+eqSumExample inputList = do
+  choice <- genChoices' @_ @_ @c [-1, 1] inputList
+
+  let multiplied = map (\(x, y) -> fromInteger x * y) choice
+  pure $ sum multiplied
+
 data Expr a where
   -- Var :: [a] -> VarId -> Expr a
   Var :: VarId -> Expr a
@@ -143,7 +159,7 @@ data Expr a where
   Sub :: Expr Int -> Expr Int -> Expr Int
   Mul :: Expr Int -> Expr Int -> Expr Int
 
-  SumList :: Expr [Int] -> Expr Int
+  SumList :: [Expr Int] -> Expr Int
   Intersect :: Expr [a] -> Expr [a] -> Expr [a]
   -- Length :: Expr [a] -> Expr Int
   -- ListMap :: (Expr a -> Expr b) -> Expr [a] -> Expr [b]
