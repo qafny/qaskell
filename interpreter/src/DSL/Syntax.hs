@@ -104,6 +104,25 @@ instance Ord a => FromList a (Super a (Expr b)) where
 --   [b] -> t a -> (t b -> r) -> r
 -- generateChoicesFromList ds stuct f = undefined
 
+class GenChoices f b where
+  genChoices' :: (Traversable t) =>
+    [b] -> t a -> f (t (Expr b))
+
+instance Ord b => GenChoices (Super b) b where
+  genChoices' = genChoicesQuantum
+
+instance GenChoices [] b where
+  genChoices' ds struct = 
+    traverse (\a -> msum (map (go a) ds)) struct
+    where
+      go a d = return (Lit d)
+
+genChoicesQuantum :: (Ord b, Traversable t) =>
+  [b] -> t a -> Super b (t (Expr b))
+genChoicesQuantum choices struct = Super $ do
+  tell $ Set.fromList choices
+  lift $ traverse (const (fmap Var fresh)) struct
+
 generateChoicesFromList :: forall f t a b. (FromList b (f b), Applicative f, Traversable t) => 
                    [b] -> t a -> f (t b)
 generateChoicesFromList ds struct =
@@ -117,8 +136,9 @@ generateChoicesFromList ds struct =
   --   go a d = (d, a)
 
 data Expr a where
-  Var :: [a] -> VarId -> Expr a
-  Lit :: Int -> Expr Int
+  -- Var :: [a] -> VarId -> Expr a
+  Var :: VarId -> Expr a
+  Lit :: a -> Expr a
   Add :: Expr Int -> Expr Int -> Expr Int
   Sub :: Expr Int -> Expr Int -> Expr Int
   Mul :: Expr Int -> Expr Int -> Expr Int
