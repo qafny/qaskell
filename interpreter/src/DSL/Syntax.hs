@@ -184,6 +184,10 @@ neededBitSize = ceiling . logBase 2 . fromIntegral
 
 -- | Example:
 -- ghci> runClassical (graphColoringExample 3 graph1) :: [Int]
+-- ...
+-- ghci> -- Syntactic version:
+-- ghci> runSuper (graphColoringExample 3 graph1 :: Super Int (Expr Int))
+-- ...
 --
 graphColoringExample :: forall a c m. (GetBit c, Num c, GenChoices m Int c) =>
   Int -> AdjMatrix a -> m c
@@ -237,9 +241,9 @@ data Expr a where
 
   -- ToList :: Structure Expr f => Expr (f a) -> Expr [a]
 
--- deriving instance Show a => Show (Expr a)
--- deriving instance Eq a => Eq (Expr a)
--- deriving instance Ord a => Ord (Expr a)
+deriving instance Show a => Show (Expr a)
+deriving instance Eq a => Eq (Expr a)
+deriving instance Ord a => Ord (Expr a)
 
 eval :: Subst a -> Expr a -> a
 eval sbst = go . substs sbst
