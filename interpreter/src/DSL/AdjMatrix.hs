@@ -5,7 +5,7 @@
 module DSL.AdjMatrix
   (AdjMatrix(..)
   ,adjMatrix
-  ,upperDiagonal
+  ,upperTriangle
   ,completeGraph
   ,getNodes
   ,getEdges
@@ -44,12 +44,12 @@ newtype AdjMatrix a = AdjMatrix [[Maybe a]]
 instance Traversable AdjMatrix where
   traverse f (AdjMatrix rows) = AdjMatrix <$> traverse (traverse (traverse f)) rows
 
--- | Remove everything except the upper diagonal. We don't lose information
+-- | Remove everything except the upper triangular matrix. We don't lose information
 -- because an adjacency matrix of an undirected graph must be symmetric
 --
 -- We use this so that we don't encounter an edge twice.
-upperDiagonal :: AdjMatrix a -> AdjMatrix a
-upperDiagonal (AdjMatrix rows) =
+upperTriangle :: AdjMatrix a -> AdjMatrix a
+upperTriangle (AdjMatrix rows) =
   AdjMatrix $ zipWith nothingDrop [0..length rows] rows
   where
     nothingDrop 0 xs = xs

@@ -16,6 +16,8 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad
 import Control.Applicative
+import Numeric.LinearAlgebra hiding ((<>))
+import qualified Numeric.LinearAlgebra as Matrix
 import Data.Proxy
 import Data.Coerce
 import Data.List (intersect, minimumBy)
@@ -147,13 +149,29 @@ generateChoicesFromList ds struct =
   --   go :: a -> b -> (b, a)
   --   go a d = (d, a)
 
+-- | Postcondition: In the result of `distinctNTuples n xs`, the sublists
+-- all have length `n`.
+distinctNTuples :: Int -> [a] -> [[a]]
+distinctNTuples n xs =
+  filter ((== n) . length) $ filterM (const [False, True]) xs
+
 eqSumExample :: forall c m. (Num c, GenChoices m Int c) =>
   [Int] -> m c
 eqSumExample inputList = do
-  choice <- genChoices' @_ @_ @c [-1, 1 :: Int] inputList
+  choice <- genChoices' [-1, 1 :: Int] inputList
 
   let multiplied = map (\(x, y) -> fromIntegral x * y) choice
   pure $ sum multiplied
+
+eqSumExample2 :: forall c m. (Num c, GenChoices m Int c) =>
+  [Int] -> m c
+eqSumExample2 inputList = do
+  choice <- genChoices' @_ @_ @c [0, 1 :: Int] inputList
+
+  pure $ sum $ map go (distinctNTuples 2 choice)
+  where
+    go [(choiceX, x), (choiceY, y)] =
+      (fromIntegral choiceX * x) + (fromIntegral choiceY * y)
 
 runClassical :: forall b c. Super c (Expr c) -> [c]
 runClassical act = do
@@ -210,7 +228,7 @@ graphColoringExample colorCount adj = do
     go :: [c] -> c
     go nodeColors =
       let adj' :: AdjMatrix (c, c)
-          adj' = upperDiagonal $ updateNodeContents adj nodeColors
+          adj' = upperTriangle $ updateNodeContents adj nodeColors
       in
       sum $ fmap edgeCalculation adj'
 
@@ -218,7 +236,10 @@ cliqueExample :: forall a c m. (Num c, GenChoices m Int c) =>
   Int -> AdjMatrix a -> m c
 cliqueExample cliqueSize adj = do
     choice <- map snd <$> genChoices' @_ @_ @c [0, 1 :: Int] nodes
-    pure (fromIntegral ((cliqueSize * (cliqueSize - 1)) `div` 2) * go choice)
+
+    let coefficient = (cliqueSize * (cliqueSize - 1)) `div` 2
+
+    pure (fromIntegral coefficient * go choice)
   where
     nodes :: [()]
     nodes = getNodes adj
@@ -229,7 +250,9 @@ cliqueExample cliqueSize adj = do
     go :: [c] -> c
     go cliqueNodeChoices =
       let adj' :: AdjMatrix (c, c)
-          adj' = upperDiagonal $ updateNodeContents adj cliqueNodeChoices
+          adj' =
+            upperTriangle                              -- Get only the upper triangle of the matrix resulting from the step on the next line
+            $ updateNodeContents adj cliqueNodeChoices -- Update the entries of the adjacency matrix from just effectively being a boolean to say if an edge exists to the pair of nodes at either side of the edge
       in
       sum $ fmap edgeCalculation adj'
 
@@ -263,6 +286,77 @@ data Expr a where
 deriving instance Show a => Show (Expr a)
 deriving instance Eq a => Eq (Expr a)
 deriving instance Ord a => Ord (Expr a)
+
+data Value = Scalar (Complex Double) | Operation (Matrix (Complex Double))
+  deriving (Show)
+
+(^*^) :: Value -> Value -> Value
+Scalar x ^*^ Scalar y = Scalar (x * y)
+Scalar x ^*^ Operation a = Operation (scale x a)
+Operation a ^*^ Scalar x = Operation (scale x a)
+Operation a ^*^ Operation b = Operation (a * b)
+
+(^+^) :: Value -> Value -> Value
+Scalar x ^+^ Scalar y = Scalar (x + y)
+Operation a ^+^ Operation b = Operation (a + b)
+_ ^+^ _ = error "(^+^): Can only add two scalars or two matrices"
+
+(^<>^) :: Value -> Value -> Value
+Operation a ^<>^ Operation b = Operation (a Matrix.<> b)
+_ ^<>^ _ = error "(^<>^): Can only (<>) two matrices"
+
+toMatrixUnsafe :: Value -> Matrix (Complex Double)
+toMatrixUnsafe (Operation a) = a
+toMatrixUnsafe _ = error "toMatrixUnsafe: Got a scalar"
+
+compile :: Super Int (Expr Int) -> (Matrix (Complex Double), Matrix (Complex Double))
+compile act =
+  let (choices, expr) = runSuper act
+  in
+  (compileGenChoices (length choices)
+  ,toMatrixUnsafe $ compileExpr (maximum (getFreeVars expr)) expr
+  )
+
+compileGenChoices :: Int -> Matrix (Complex Double)
+compileGenChoices numChoices =
+  foldr (\_ y -> hadamard Matrix.<> y) (ident 2) [0..numChoices-1]
+
+hadamard :: Matrix (Complex Double)
+hadamard =
+  scale (1/sqrt 2) $
+    (2><2)
+    [ 1, 1
+    , 1, -1
+    ]
+
+compileExpr :: VarId -> Expr Int -> Value
+compileExpr maxVarId = go
+  where
+    go = \case
+      Var x -> Operation (compileVar maxVarId x)
+      Lit i -> Scalar (fromIntegral i)
+      Add x y -> go x ^+^ go y
+      Mul x y -> go x ^<>^ go y
+      GetBit (Var x) i -> Scalar (fromIntegral (getBit x i))
+
+compileVar :: VarId -> VarId -> Matrix (Complex Double)
+compileVar maxVarId x = tensorBitString (allBitStrings !! x)
+  where
+    tensorBitString = foldr1 (Matrix.<>)
+
+    pos = pauliZ - ident 2
+    neg = pauliZ + ident 2
+
+    allBitStrings = replicateM bitSize [pos, neg]
+
+    bitSize = neededBitSize maxVarId
+
+pauliZ :: Matrix (Complex Double)
+pauliZ =
+  (2><2)
+  [ 1, 0
+  , 0, -1
+  ]
 
 eval :: Subst a -> Expr a -> a
 eval sbst = go . substs sbst
