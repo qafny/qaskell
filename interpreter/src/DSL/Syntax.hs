@@ -336,7 +336,7 @@ compileExpr maxVarId = go
       Var x -> Operation (compileVar maxVarId x)
       Lit i -> Scalar (fromIntegral i)
       Add x y -> go x ^+^ go y
-      Mul x y -> go x ^<>^ go y
+      Mul x y -> go x ^<>^ go y -- TODO: Is this right?
       GetBit (Var x) i -> Scalar (fromIntegral (getBit x i))
 
 compileVar :: VarId -> VarId -> Matrix (Complex Double)
