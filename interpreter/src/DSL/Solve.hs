@@ -68,6 +68,35 @@ type IntWeighted = Weighted Int
 -- data structure with a MonadPlus operation representing (weighted) choices.
 -- For now we use integers to represent the weights.
 
+-- element in a data-structure t a, t is a tree, and a is the node
+-- classical case
+a : vertex
+
+t a : data-tructure frame
+
+b : a single choice
+
+m b : a list of choices
+
+Given a set of choices, and a data-structure frame (t a), we generate m (t b), a list of data-structure choices
+
+-- quantum case
+a : vertex
+
+t a : data-structure frame
+
+b : a single ket choice |0> , |1>, the 0 and 1 could be symbolic
+
+m b : a superposition holder: Sum b (guard b)
+
+guard: a function (a -> b -> bool), Sum b (a function apply on b)
+
+-- energy association
+
+
+
+
+
 type ChoiceStrategy m t a b = t a -> m (t b)
 
 generateChoices :: (Monad m, Comonad t, Traversable t) => (a -> m b) -> t a -> m (t b)
