@@ -1,0 +1,53 @@
+
+
+I
+
+
+
+
+
+
+Interface
+
+
+
+- genChoices :: Num b => [b] -> t a -> M (t (a, b))
+  + Type class
+  + Classical has MonadPlus constraint
+
+
+
+- mplus :: MonadPlus m => m a -> m a -> m a
+
+  + x `mplus` empty = x
+  + 
+
+
+eqSum [5, 7]:
+
+- Quantum:   genChoices [-1, 1] [5, 7] ==> [(5, negSigmaZ), (7, posSigmaZ)]
+                                       ==> [(5, Var "x"), (7, Var "y")]
+
+          genChoices [-1, 1] [5, 7] = traverse (something [-1, 1]) [5, 7]
+                                    =classical=> traverse (\x -> pure (x, -1) `mplus` pure (x, 1)) [5, 7]
+
+                                    =classical=> traverse (\x -> strength (x, [-1, 1])) [5, 7] -- TODO: ??
+                                    strength :: (A, F B) -> F (A, B)       -- F ~ []
+
+                                    ==quantum==> traverse (\x -> do
+                                                             sigma <- q [-1, 1] -- TODO: Does it need to be like this or can q be pure?
+                                                             pure (x, sigma))
+                                                          [5, 7]
+                                    
+
+              
+                                    
+
+          (5 * negSigmaZ) + (7 * posSigmaZ)
+
+
+- Classical: genChoices [-1, 1] [5, 7] ==> [[5, 7], [-5, 7], [-5, -7], [5, -7]]
+
+
+
+

@@ -126,8 +126,8 @@ instance GenChoices [] b b where
     where
       go a d = return (a, d)
 
-genChoicesQuantum :: forall a b t. (Ord b, Traversable t) =>
-  [b] -> t a -> Super b (t (a, Expr b))
+-- [1, 2, 3]  ==>   [(1, Var "a"), (2, Var "b"), (3, Var "c")]
+genChoicesQuantum :: forall a b t. (Ord b, Traversable t) => [b] -> t a -> Super b (t (a, Expr b))
 genChoicesQuantum choices struct = Super $ do
   tell $ Set.fromList choices
   lift $ traverse go struct
@@ -155,10 +155,11 @@ distinctNTuples :: Int -> [a] -> [[a]]
 distinctNTuples n xs =
   filter ((== n) . length) $ filterM (const [False, True]) xs
 
-eqSumExample :: forall c m. (Num c, GenChoices m Int c) =>
-  [Int] -> m c
+eqSumExample :: 
+  [Int] -> Super Int (Expr Int)
 eqSumExample inputList = do
-  choice <- genChoices' [-1, 1 :: Int] inputList
+  choice :: [(Int, Expr Int)]
+       <- genChoicesQuantum [-1, 1 :: Int] inputList
 
   let multiplied = map (\(x, y) -> fromIntegral x * y) choice
   pure $ sum multiplied
@@ -183,12 +184,12 @@ runClassical act = do
   sbst <- sbsts
   pure $ eval sbst expr
 
-eqSumExampleInstance :: ([Int], Expr Int)
-eqSumExampleInstance =
-  runSuper (eqSumExample [7, 5, 10])
+-- eqSumExampleInstance :: ([Int], Expr Int)
+-- eqSumExampleInstance =
+--   runSuper (eqSumExample [7, 5, 10])
 
-eqSumExampleInstanceClassical :: [Int]
-eqSumExampleInstanceClassical = runClassical (eqSumExample [7, 5])
+-- eqSumExampleInstanceClassical :: [Int]
+-- eqSumExampleInstanceClassical = runClassical (eqSumExample [7, 5])
 
 getBits :: (Num a, GetBit a) => Int -> a -> [a]
 getBits bitSize x = go bitSize
@@ -207,11 +208,48 @@ neededBitSize = ceiling . logBase 2 . fromIntegral
 -- ghci> runSuper (graphColoringExample 3 graph1 :: Super Int (Expr Int))
 -- ...
 --
+
+-- adj:
+--   [[ Just (), Nothing, Just ()]
+--   ,[ Nothing, Nothing, Just ()]
+--   ,[ Nothing, Just (), Just ()]
+--   ]
+--
+--   [Just (), Nothing, Just (), Nothing, Nothing]
+--
+--   vertices, edges
+--   (a, b) <- distinctNTuples 2 vertices
+--   if (a, b) `elem` edges
+--   then 1
+--   else 0
+
+-- Program
+--   { choices = colorList
+--   , inputList = inputList
+--   , view = 2
+--   , pattern = \[(choiceA, a), (choiceB, b)] ->
+--                  if (a, b) `elem` edges
+--                  then
+--                      if choiceA == choiceB -- Variables
+--                      then 1
+--                      else 0
+--                  else 0
+--   }
+--
+--
+--   IfThenElse (Equal (Var x) (Var y))
+--      ==>
+--   TODO
+
 graphColoringExample :: forall a c m. (GetBit c, Num c, GenChoices m Int c) =>
   Int -> AdjMatrix a -> m c
 graphColoringExample colorCount adj = do
   choice <- map snd <$> genChoices' @_ @_ @c [0..colorCount-1] nodes
-  pure (go choice)
+
+  let adj' :: AdjMatrix (c, c)
+      adj' = upperTriangle $ updateNodeContents adj choice
+
+  pure $ sum $ fmap edgeCalculation adj'
   where
     nodes :: [()]
     nodes = getNodes adj
@@ -224,13 +262,6 @@ graphColoringExample colorCount adj = do
           node2ColorBits = getBits colorBitSize node2Color
       in
       sum (zipWith (*) node1ColorBits node2ColorBits)
-
-    go :: [c] -> c
-    go nodeColors =
-      let adj' :: AdjMatrix (c, c)
-          adj' = upperTriangle $ updateNodeContents adj nodeColors
-      in
-      sum $ fmap edgeCalculation adj'
 
 cliqueExample :: forall a c m. (Num c, GenChoices m Int c) =>
   Int -> AdjMatrix a -> m c
@@ -301,20 +332,23 @@ Scalar x ^+^ Scalar y = Scalar (x + y)
 Operation a ^+^ Operation b = Operation (a + b)
 _ ^+^ _ = error "(^+^): Can only add two scalars or two matrices"
 
-(^<>^) :: Value -> Value -> Value
-Operation a ^<>^ Operation b = Operation (a Matrix.<> b)
-_ ^<>^ _ = error "(^<>^): Can only (<>) two matrices"
+-- (^<>^) :: Value -> Value -> Value
+-- Operation a ^<>^ Operation b = Operation (a Matrix.<> b)
+-- _ ^<>^ _ = error "(^<>^): Can only (<>) two matrices"
 
 toMatrixUnsafe :: Value -> Matrix (Complex Double)
 toMatrixUnsafe (Operation a) = a
 toMatrixUnsafe _ = error "toMatrixUnsafe: Got a scalar"
 
-compile :: Super Int (Expr Int) -> (Matrix (Complex Double), Matrix (Complex Double))
+compile ::
+  Super Int (Expr Int) ->
+  (Matrix (Complex Double)
+  ,Matrix (Complex Double))
 compile act =
   let (choices, expr) = runSuper act
   in
   (compileGenChoices (length choices)
-  ,toMatrixUnsafe $ compileExpr (maximum (getFreeVars expr)) expr
+  ,toMatrixUnsafe $ compileExpr (maximum (getFreeVars expr) + 1) expr
   )
 
 compileGenChoices :: Int -> Matrix (Complex Double)
@@ -336,11 +370,14 @@ compileExpr maxVarId = go
       Var x -> Operation (compileVar maxVarId x)
       Lit i -> Scalar (fromIntegral i)
       Add x y -> go x ^+^ go y
-      Mul x y -> go x ^<>^ go y -- TODO: Is this right?
+      Mul x y -> go x ^*^ go y -- TODO: Is this right?
       GetBit (Var x) i -> Scalar (fromIntegral (getBit x i))
 
 compileVar :: VarId -> VarId -> Matrix (Complex Double)
-compileVar maxVarId x = tensorBitString (allBitStrings !! x)
+compileVar maxVarId x
+    | x > maxVarId = error "compileVar: x > maxVarId"
+    | x >= length allBitStrings = error "compileVar: x >= length allBitStrings"
+    | otherwise = tensorBitString (allBitStrings !! x)
   where
     tensorBitString = foldr1 (Matrix.<>)
 
