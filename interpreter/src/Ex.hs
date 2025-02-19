@@ -4,13 +4,13 @@ import DSL.Syntax hiding (eqSumExample)
 
 -- import QuantumLibrary
 
-eqSumExample inputList =
-  Program
-    { choices = [0, 1]
-    , inputList = inputList
-    , view = 2
-    , pattern = \[(choiceX, x), (choiceY, y)] -> (choiceX * x) + (choiceY * y)
-    }
+-- eqSumExample inputList =
+--   Program
+--     { choices = [0, 1]
+--     , inputList = inputList
+--     , view = 2
+--     , pattern = \[(choiceX, x), (choiceY, y)] -> (choiceX * x) + (choiceY * y)
+--     }
 
 -- eqSumExample [7, 5]
 eqSumExample :: [Int] -> Super Int (Expr Int)

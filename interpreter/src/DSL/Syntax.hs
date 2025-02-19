@@ -66,6 +66,8 @@ fresh = do
   Fresh (modify (+1))
   pure curr
 
+-- newtype Super2 a b = Fresh (Const 
+
 -- TODO: Maybe we should use `StateT (Set w) ...` here instead of using
 -- WriterT.
 newtype Super w a = Super (WriterT (Set w) Fresh a)
@@ -122,9 +124,25 @@ instance Ord b => GenChoices (Super b) b (Expr b) where
 
 instance GenChoices [] b b where
   genChoices' ds struct = 
-    traverse (\a -> msum (map (go a) ds)) struct
-    where
-      go a d = return (a, d)
+    traverse (\a -> strength (a, ds)) struct
+    -- traverse (\a -> msum (map (go a) ds)) struct
+    -- where
+    --   go a d = return (a, d)
+
+genChoicesOrig ds struct =
+  traverse (\a -> msum (map (go a) ds)) struct
+  where
+    go a d = return (a, d)
+
+-- TODO: What if `f b ~ Fresh (Const Expr b)`
+-- or `f b ~ Const (Fresh ()) b`
+--
+-- TODO: Need something like `choiceList :: [b] -> f b`
+-- and the quantum version could have `choiceList _ = fmap Var fresh`
+genChoicesNewVersion :: (Traversable t, Applicative f) =>
+  f b -> t a -> f (t (a, b))
+genChoicesNewVersion ds struct =
+  traverse (\a -> strength (a, ds)) struct
 
 -- [1, 2, 3]  ==>   [(1, Var "a"), (2, Var "b"), (3, Var "c")]
 genChoicesQuantum :: forall a b t. (Ord b, Traversable t) => [b] -> t a -> Super b (t (a, Expr b))
@@ -154,6 +172,13 @@ generateChoicesFromList ds struct =
 distinctNTuples :: Int -> [a] -> [[a]]
 distinctNTuples n xs =
   filter ((== n) . length) $ filterM (const [False, True]) xs
+
+makeActualChoice :: forall a b. [b] -> [[a]] -> [[(a, b)]]
+makeActualChoice choices xss = do
+  xs <- xss
+  ys <- replicateM (length xs) choices
+  let zs = zip xs ys
+  pure zs
 
 eqSumExample :: 
   [Int] -> Super Int (Expr Int)
