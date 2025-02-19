@@ -173,13 +173,6 @@ distinctNTuples :: Int -> [a] -> [[a]]
 distinctNTuples n xs =
   filter ((== n) . length) $ filterM (const [False, True]) xs
 
-makeActualChoice :: forall a b. [b] -> [[a]] -> [[(a, b)]]
-makeActualChoice choices xss = do
-  xs <- xss
-  ys <- replicateM (length xs) choices
-  let zs = zip xs ys
-  pure zs
-
 eqSumExample :: 
   [Int] -> Super Int (Expr Int)
 eqSumExample inputList = do
@@ -233,6 +226,31 @@ neededBitSize = ceiling . logBase 2 . fromIntegral
 -- ghci> runSuper (graphColoringExample 3 graph1 :: Super Int (Expr Int))
 -- ...
 --
+
+
+makeActualChoice :: forall a b. [b] -> [[a]] -> [[(a, b)]]
+makeActualChoice choices xss = do
+  xs <- xss
+  ys <- replicateM (length xs) choices
+  let zs = zip xs ys
+  pure zs
+
+graphColoringExample2 ::
+  Int -> [Int] -> [(Int, Int)] -> Super Int (Expr Int)
+graphColoringExample2 colorCount nodes edges = do
+  choice <- genChoicesQuantum [0..colorCount-1] nodes
+
+  let pairs = distinctNTuples 2 choice
+
+      chosenPairs = makeActualChoice [0..colorCount-1] pairs
+
+  pure $ sum $ map go chosenPairs
+  where
+    go :: [((Int, Expr Int), Int)] -> Expr Int
+    go [((a, varA), choiceA), ((b, varB), choiceB)] =
+      if (a, b) `elem` edges && choiceA == choiceB
+      then 1
+      else 0
 
 -- adj:
 --   [[ Just (), Nothing, Just ()]
