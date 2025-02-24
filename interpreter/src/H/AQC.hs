@@ -43,7 +43,7 @@ compileSpin spin occ =
 
 -- | The list of weights.
 problemWeights :: [Double]
-problemWeights = [1, 2, 2, 3]
+problemWeights = [1, 3, 2]
 -- (You can change this list to any set of numbers.)
 
 -- | In number partitioning one seeks to split the numbers into two groups.
@@ -90,7 +90,7 @@ solvePartition = do
 
 -- Number of qubits.
 nQubits :: Int
-nQubits = 4
+nQubits = 3
 
 -- Hilbert space dimension.
 dim :: Int
@@ -255,7 +255,7 @@ main = do
   printCostHamiltonian problemWeights
   printAdiabaticSchedule 5
   --solvePartition
-  
+
   -- Simulate the adiabatic evolution.
   let schedule = [ fromIntegral i / fromIntegral numSteps | i <- [0 .. numSteps] ]
   putStrLn "\nSimulating Adiabatic Evolution..."
