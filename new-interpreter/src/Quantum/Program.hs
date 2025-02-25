@@ -1,6 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Quantum.Program
+  (Program (..)
+  ,solveProgram
+  )
   where
 
 import Control.Monad.State
@@ -30,9 +33,9 @@ generateVars :: Traversable t =>
   t a -> Fresh (t (Var a))
 generateVars = traverse (\x -> Var x <$> fresh)
 
-solveProgram :: forall t a. Traversable t =>
+solveProgram :: forall t a. (Eq a, Traversable t) =>
   Program t a ->
-  [(a, [Var a])]
+  [(a, [Pauli])]
 solveProgram prog =
   let
       varStruct :: t (Var a)
@@ -50,7 +53,7 @@ solveProgram prog =
       results = map (\x -> (constraints prog x, map fst x))
                     actualPairs
   in
-  results
+  varsToPauli results
 
 type Pauli = Matrix (Complex Double)
 
