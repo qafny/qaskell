@@ -9,6 +9,11 @@ import Control.Monad
 import Data.Foldable
 import Data.List (nub)
 
+import Numeric.LinearAlgebra hiding ((<>), toList)
+import qualified Numeric.LinearAlgebra as Matrix
+import Data.Complex
+import Data.Bifunctor (second)
+
 type VarId = Int
 
 data Var a = Var a VarId
@@ -47,8 +52,7 @@ solveProgram prog =
   in
   results
 
-data PauliBasis = I | X | Y | Z
-type Pauli = [PauliBasis]
+type Pauli = Matrix (Complex Double)
 
 varsToPauli :: forall a. Eq a => [(a, [Var a])] -> [(a, [Pauli])]
 varsToPauli xs =
@@ -58,10 +62,10 @@ varsToPauli xs =
 
       totalVarCount = length freeVars
   in
-  undefined
+  map (second (map (toPauli totalVarCount))) xs
 
 toPauli :: Int -> Var a -> Pauli
-toPauli totalVarCount (Var _ i)
+toPauli totalVarCount (Var _ x)
   | x > totalVarCount = error "compileVar: x > totalVarCount"
   | x >= length allBitStrings = error "compileVar: x >= length allBitStrings"
   | otherwise = tensorBitString (allBitStrings !! x)
@@ -74,6 +78,13 @@ toPauli totalVarCount (Var _ i)
     allBitStrings = replicateM bitSize [pos, neg]
 
     bitSize = neededBitSize totalVarCount
+
+pauliZ :: Matrix (Complex Double)
+pauliZ =
+  (2><2)
+  [ 1, 0
+  , 0, -1
+  ]
 
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
