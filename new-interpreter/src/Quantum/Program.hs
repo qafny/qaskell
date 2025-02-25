@@ -72,8 +72,8 @@ toPauli totalVarCount (Var _ x)
   where
     tensorBitString = foldr1 (Matrix.<>)
 
-    pos = pauliZ - ident 2
-    neg = pauliZ + ident 2
+    pos = (pauliZ - ident 2) / 2
+    neg = (pauliZ + ident 2) / 2
 
     allBitStrings = replicateM bitSize [pos, neg]
 
