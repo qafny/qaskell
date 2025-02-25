@@ -140,3 +140,58 @@ square x = x * x
 solveF :: (Foldable f, Ord a) =>
   f a -> a
 solveF = minimum
+
+
+
+
+--We convert haskell choices [([(a,Var b)], Integer)] to [(Real, [Pauli String])]
+
+countAux: [b] -> Integer -> [(b,Integer)]
+countAux [] n = a
+countAux (x:xs) n = (x,n):counts xs (n+1)
+
+counts l = countAux l 0
+
+data Pauli x = I x | Z x | X x | Y x
+
+type Pau a = (Real, a)
+
+
+
+findInteger [(b,Integer)] -> b -> Maybe Integer
+findInteger ds d = do da,v <- ds
+                      if da == d then Just v else None
+
+genChoice n [] = []
+genChoice n (x:xs) = if n `mod` 2 == 0
+                     then [(1/2, I ((var (snd x)))), (-1/2, Z ((var (snd x))))] : genChoice (n `div` 2) (m-1)
+                     else [(1/2, I ((var (snd x)))), (1/2, Z ((var (snd x))))] : genChoice (n `div` 2) (m-1)
+
+convertAux cs ds = do a,c <- cs
+                     case findInteger ds (choice c) of
+                     Just v -> return genChoice v ds
+                     None -> []
+
+-- [[(Real, Pauli String)]] -> [(Real, [Pauli String])]
+expand [] = []
+expand (x:l) = do (a, v) <- x
+                  (ar, vl) <- expand l
+                  return (a * ar, v:vl)
+
+combineAux x [] = x
+combineAux x (y:l) = if snd x == snd y then (fst x + fst y, snd x):l else y:(combineAux x l)
+
+combine [] = []
+combine (x:l) = combine (combineAux x l)
+
+clean [] = []
+clean ((a,b):l) = if a == 0.0 then clean l else (a,b):(clean l)
+
+insertValue v [] = []
+insertValue v ((a,b):xs) = (a*v,b):(insertValue v xs)
+
+
+-- [([(a,Var b)], Integer)] -> [b] -> [(Real, [Pauli String])]
+
+convert l ds = let dsa = counts ds
+               foldl (\b (cs,v) -> insertValue v $ clean $ combine $ expand (convertAux cs dsa)) [] l
