@@ -41,14 +41,21 @@ graphColoring colorCount edges =
       then 1
       else 0
 
--- cliqueFinding ::
---   Int -> AdjList Int -> Program [] Int
--- cliqueFinding cliqueSize edges =
---   Program
---     { choices = [0, 1]
---     , struct = getNodes edges
---     , view = 
---     }
+cliqueFinding ::
+  Int -> AdjList Int -> Program [] Int
+cliqueFinding cliqueSize edges =
+  Program
+    { choices = [0, 1]
+    , struct = getNodes edges
+    , view = 2
+    , constraints = \[(varA, choiceA), (varB, choiceB)] ->
+        let a = getVarPayload varA
+            b = getVarPayload varB
+        in
+        if (a, b) `elem` edges
+        then choiceA * choiceB
+        else 0
+    }
 
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]
