@@ -8,7 +8,7 @@ import Data.List (nub)
 -- ghci> solveProgram (eqSum [1, 2])
 -- ...
 eqSum ::
-  [Int] -> Program [] Int
+  [Int] -> Program [] Int Int
 eqSum inputList =
   Program
     { choices = [0, 1]
@@ -23,7 +23,7 @@ eqSum inputList =
 -- ghci> solveProgram (graphColoring 2 graph1)
 -- ...
 graphColoring ::
-  Int -> [(Int, Int)] -> Program [] Int
+  Int -> [(Int, Int)] -> Program [] Int Int
 graphColoring colorCount edges = 
   Program
     { choices = [0..colorCount-1]
@@ -39,7 +39,7 @@ graphColoring colorCount edges =
       else 0
 
 cliqueFinding ::
-  Int -> AdjList Int -> Program [] Int
+  Int -> AdjList Int -> Program [] Int Int
 cliqueFinding cliqueSize edges =
   Program
     { choices = [0, 1]
@@ -53,7 +53,7 @@ cliqueFinding cliqueSize edges =
 
 data Cover a = MkCover { vars :: [a], valuation :: [a] -> Bool }
 
-exactCover :: Cover Int -> Program [] Int
+exactCover :: Cover Int -> Program [] Int Int
 exactCover cover =
   Program
     { choices = [0, 1],
