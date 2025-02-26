@@ -17,7 +17,7 @@ import Data.List (nub)
 import Numeric.LinearAlgebra hiding ((<>), toList)
 import qualified Numeric.LinearAlgebra as Matrix
 import Data.Complex
-import Data.Bifunctor (second)
+import Data.Bifunctor (first, second)
 
 type VarId = Int
 
@@ -74,7 +74,7 @@ data Program t a =
     { choices :: [a]
     , struct :: t a
     , view :: Int
-    , constraints :: [(Var a, a)] -> a
+    , constraints :: [(a, a)] -> a
     }
 generateVars :: Traversable t =>
   t a -> Fresh (t (Var a))
@@ -100,7 +100,7 @@ solveProgram prog =
       encodedChoices = encodeChoices (choices prog)
 
       results :: [(a, [(Var a, a)])]
-      results = map (\x -> (constraints prog x, x))
+      results = map (\x -> (constraints prog (map (first getVarPayload) x), x))
                     actualPairs
 
       decode :: (Var a, a) -> PauliExpr

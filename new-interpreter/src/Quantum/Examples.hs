@@ -14,10 +14,10 @@ eqSum inputList =
     { choices = [0, 1]
     , struct = inputList
     , view = 2
-    , constraints = \[(varX, choiceX), (varY, choiceY)] ->
-        (choiceX * getVarPayload varX)
+    , constraints = \[(a, choiceA), (b, choiceB)] ->
+        (a * choiceA)
           +
-        (choiceY * getVarPayload varY)
+        (b * choiceB)
     }
 
 -- ghci> solveProgram (graphColoring 2 graph1)
@@ -32,11 +32,8 @@ graphColoring colorCount edges =
     , constraints = go
     }
   where
-    go :: [((Var Int, Int))] -> Int
-    go [(varA, choiceA), (varB, choiceB)] =
-      let a = getVarPayload varA
-          b = getVarPayload varB
-      in
+    go :: [((Int, Int))] -> Int
+    go [(a, choiceA), (b, choiceB)] =
       if (a, b) `elem` edges && choiceA == choiceB
       then 1
       else 0
@@ -48,13 +45,25 @@ cliqueFinding cliqueSize edges =
     { choices = [0, 1]
     , struct = getNodes edges
     , view = 2
-    , constraints = \[(varA, choiceA), (varB, choiceB)] ->
-        let a = getVarPayload varA
-            b = getVarPayload varB
-        in
+    , constraints = \[(a, choiceA), (b, choiceB)] ->
         if (a, b) `elem` edges
         then 0
         else choiceA * choiceB
+    }
+
+data Cover a = MkCover { vars :: [a], valuation :: [a] -> Bool }
+
+exactCover :: Cover Int -> Program [] Int
+exactCover cover =
+  Program
+    { choices = [0, 1],
+      struct = vars cover,
+      view = 3,
+      constraints =
+        \[(a, choiceA), (b, choiceB), (c, choiceC)] ->
+          if valuation cover [a, b, c] && choiceA + choiceB + choiceC == 1
+          then 0
+          else 1
     }
 
 -- exactCover :: 
