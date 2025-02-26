@@ -1,74 +1,84 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
-{-# OPTIONS_GHC -Woverlapping-patterns #-}
+{-# OPTIONS_GHC -Woverlapping-patterns -Wincomplete-patterns #-}
 
 module Quantum.Program
-  (Program (..)
-  ,Var
-  ,getVarPayload
-  ,solveProgram
-  )
+  -- (Program (..)
+  -- ,Var
+  -- ,getVarPayload
+  -- ,solveProgram
+  -- ,simplify
+  -- )
   where
 
 import Control.Monad.State
 import Control.Monad
 
 import Data.Functor
+import Data.Coerce
 
 import Data.Foldable
-import Data.List (nub, partition)
+import Data.List (nub, partition, intersperse, intercalate)
 
-import Numeric.LinearAlgebra hiding ((<>), toList)
+import Numeric.LinearAlgebra hiding ((<>), toList, scale, add, sub)
 import qualified Numeric.LinearAlgebra as Matrix
 import Data.Complex
 import Data.Bifunctor (first, second)
 
 type VarId = Int
 
-data PauliExpr = I VarId | Z VarId | Add PauliExpr PauliExpr | Scale (Complex Double) PauliExpr | Tensor PauliExpr PauliExpr
+data PauliExpr = I VarId | Z VarId
+  deriving (Eq)
 
-pattern Sub x y = Add x (Scale (-1) y)
+data Scaled a = Scale (Complex Double) a
 
--- interpPauliExpr :: PauliExpr -> Pauli
--- interpPauliExpr I = ident 2
--- interpPauliExpr Z = pauliZ
--- interpPauliExpr (Add x y) = interpPauliExpr x + interpPauliExpr y
--- interpPauliExpr (Sub x y) = interpPauliExpr x - interpPauliExpr y
--- interpPauliExpr (Scale k x) = scalar k * (interpPauliExpr x)
--- interpPauliExpr (Tensor x y) = interpPauliExpr x Matrix.<> interpPauliExpr y
+newtype Tensor a = Tensor [a]
+  deriving (Functor, Eq, Foldable, Traversable)
 
-isPauliCombinable :: PauliExpr -> PauliExpr -> Bool
-isPauliCombinable = undefined
+newtype Summed a = Summed [a]
+  deriving (Functor, Applicative)
 
-needsParens :: PauliExpr -> Bool
-needsParens I{} = False
-needsParens Z{} = False
-needsParens (Sub {}) = True
-needsParens (Add {}) = True
-needsParens (Tensor {}) = True
-needsParens (Scale {}) = False
+type ScaledPauli = Scaled PauliExpr
+type ScaledTensor a = Scaled (Tensor a)
 
 parens :: String -> String
 parens x = "(" ++ x ++ ")"
 
-showParens :: PauliExpr -> String
-showParens e =
-  if needsParens e
-  then parens (show e)
-  else show e
+instance ShowParens a => Show (Summed a) where
+  show (Summed []) = "0"
+  show (Summed xs) = unwords $ intersperse "+" (map show xs)
 
-instance Show PauliExpr where
-  show (I i) = "I(" ++ [("xyz" ++ ['a'..'w']) !! i] ++ ")"
-  show (Z i) = "Z(" ++ [("xyz" ++ ['a'..'w']) !! i] ++ ")"
-  show (Sub x y) = showParens x ++ " - " ++ showParens y
-  show (Add x y) = showParens x ++ " + " ++ showParens y
-  show (Tensor x y) = showParens x ++ " ⊗ " ++ showParens y
+instance ShowParens a => Show (Tensor a) where
+  show (Tensor []) = "EmptyTensor"
+  show (Tensor xs) = unwords $ intersperse "⊗" (map show xs)
+
+class Show a => ShowParens a where
+  showParens :: a -> String
+
+instance ShowParens PauliExpr where
+  showParens = show
+
+instance ShowParens a => ShowParens (Summed a) where
+  showParens = parens . show
+
+instance ShowParens a => ShowParens (Tensor a) where
+  showParens = parens . show
+
+instance ShowParens a => Show (Scaled a) where
   show (Scale k x) = prettyShow k ++ " " ++ showParens x
     where
       prettyShow (a :+ 0) = show a
       prettyShow (0 :+ b) = show b ++ "i"
       prettyShow (a :+ b) = parens (show a ++ " + " ++ show b ++ "i")
+
+instance ShowParens a => ShowParens (Scaled a) where
+  showParens = show
+
+instance Show PauliExpr where
+  show (I i) = "I(" ++ [['a'..'z'] !! i] ++ ")"
+  show (Z i) = "Z(" ++ [['a'..'z'] !! i] ++ ")"
 
 data Var a = Var a VarId
   deriving (Show, Eq, Ord)
@@ -115,9 +125,9 @@ solveProgramClassical prog =
   in
   undefined
 
-solveProgram :: forall t a b. (Eq a, Eq b, Traversable t) =>
+solveProgram :: forall t a b. (Eq a, Eq b, Real a, Traversable t) =>
   Program t a b ->
-  [(a, [PauliExpr])]
+  Summed (Scaled (Tensor PauliExpr))
 solveProgram prog =
   let
       varStruct :: t (Var a)
@@ -131,80 +141,95 @@ solveProgram prog =
       actualPairs = makeActualChoice (choices prog)
                                      pairs
 
-      encodedChoices :: [(b, VarId -> PauliExpr)]
+      encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
       encodedChoices = encodeChoices (choices prog)
 
       results :: [(a, [(Var a, b)])]
       results = map (\x -> (constraints prog (map (first getVarPayload) x), x))
                     actualPairs
 
-      decode :: (Var a, b) -> PauliExpr
+      decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
       decode (var, choice) = decodeChoice encodedChoices choice (getVarId var)
 
-      results2 :: [(a, [PauliExpr])]
-      results2 = map (\(x, varChoices) -> (x, map decode varChoices)) results
+      decodeAndDistribute :: (Var a, b) -> Summed (Tensor ScaledPauli) 
+      decodeAndDistribute = distribute . decode
+
+      results2 :: [(a, Tensor (Summed (Tensor ScaledPauli)))]
+      results2 = map (second Tensor) $ map (\(x, varChoices) -> (x, map decodeAndDistribute varChoices)) results
+
+      results3 :: [(a, Summed (Tensor ScaledPauli))]
+      results3 = map (second (fmap joinTensor . distribute)) results2
+
+      results4 :: [(Complex Double, Summed (Tensor ScaledPauli))]
+      results4 = map (first toComplex) results3
+
+      results5 :: [Summed (Tensor ScaledPauli)]
+      results5 = map (uncurry scale) results4
+
+      results6 :: Summed (Tensor ScaledPauli)
+      results6 = joinSummed $ Summed results5
+
+      results7 :: Summed (Scaled (Tensor PauliExpr))
+      results7 = fmap floatScalars results6
   in
-  results2
-
-simplify :: Real a => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
-simplify =
-  map (second (concatMap expand)) -- Add (I x) (Z y) ==> [I x, Z y]
-  . combineLikePauli              -- [(0, xs), (1, ys), (0, zs)] ==> [(0, xs ++ zs), (1, ys)]
-
--- | combineLike (\(x, _) (y, _) -> x == y)
---               (<>)
---               [(0, xs), (1, ys), (0, zs)]
---     ==>
---   [(0, xs <> zs), (1, ys)]
-combineLike ::
-  (a -> a -> Bool) ->
-  (a -> [a] -> b) ->
-  [a] ->
-  [b]
-combineLike isLike combine = go 
+  eliminateZeroes $ collectLikes results7
   where
+    toComplex :: a -> Complex Double
+    toComplex = fromRational . toRational
+
+eliminateZeroes :: Summed (Scaled a) -> Summed (Scaled a)
+eliminateZeroes (Summed xs) = Summed $ filter nonZero xs
+  where
+    nonZero (Scale 0 _) = False
+    nonZero _ = True
+
+collectLikes :: forall a. Eq a => Summed (Scaled a) -> Summed (Scaled a)
+collectLikes (Summed xs0) = Summed $ go xs0
+  where
+    isLike :: Scaled a -> Scaled a -> Bool
+    isLike (Scale _ x) (Scale _ y) = x == y
+
+    -- | Precondition: the second item of the Scale should be the same for
+    -- both arguments
+    combine :: Scaled a -> Scaled a -> Scaled a
+    combine (Scale k x) (Scale k' _) = Scale (k * k') x
+
+    combineList :: Scaled a -> [Scaled a] -> Scaled a
+    combineList = foldr combine
+
+    go :: [Scaled a] -> [Scaled a]
     go [] = []
     go (x:xs) =
       let (likes, notLikes) = partition (isLike x) xs
-          newX = combine x likes
+          newX = combineList x likes
       in
       newX : go notLikes
 
--- | groupResults [(0, xs), (1, ys), (0, zs)] ==> [(0, xs ++ zs), (1, ys)]
-groupFirsts :: Eq a => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
-groupFirsts = combineLike (\(x, _) (y, _) -> x == y) (\(x, pauli) likes -> (x, pauli ++ concatMap snd likes))
+joinSummed :: forall a. Summed (Summed a) -> Summed a
+joinSummed xs = coerce (concat (coerce xs :: [[a]]))
 
-combineLikePauli :: (Eq a, Real a) => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
-combineLikePauli = undefined
+joinTensor :: forall a. Tensor (Tensor a) -> Tensor a
+joinTensor xs = coerce (concat (coerce xs :: [[a]]))
 
-combinePauli :: [PauliExpr] -> [PauliExpr]
-combinePauli = undefined
+distribute :: Tensor (Summed a) -> Summed (Tensor a)
+distribute = sequenceA
 
-expand :: PauliExpr -> [PauliExpr]
-expand (Add x y) = expand x ++ expand y
-expand x = [x]
-
-distributeScalarMult :: PauliExpr -> PauliExpr
-distributeScalarMult (Scale k x) = distributeWithScalar k x
-distributeScalarMult (Add x y) = distributeScalarMult x
-distributeScalarMult (Tensor x y) = Tensor (distributeScalarMult x) (distributeScalarMult y)
-distributeScalarMult (I x) = I x
-distributeScalarMult (Z x) = Z x
-
-distributeWithScalar :: Complex Double -> PauliExpr -> PauliExpr
-distributeWithScalar k (Add x y) = Add (distributeWithScalar k x) (distributeWithScalar k y)
-distributeWithScalar k1 (Scale k2 x) = distributeWithScalar (k1 * k2) x
-distributeWithScalar k x = Scale k x
-
-encodeChoices :: [a] -> [(a, VarId -> PauliExpr)]
+encodeChoices :: [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
 encodeChoices choices = zipWith (\choice i -> (choice, toPauli choiceCount i)) choices [0..]
   where
     choiceCount = length choices
 
-decodeChoice :: Eq a => [(a, s -> t)] -> a -> s -> t
+decodeChoice :: Eq a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> a -> VarId -> Tensor (Summed ScaledPauli)
 decodeChoice encodedChoices choice var =
   case lookup choice encodedChoices of
     Just pauliFn -> pauliFn var
+    Nothing -> error "decodeChoice"
+
+-- decodeChoice :: Eq a => [(a, s -> t)] -> a -> s -> t
+-- decodeChoice encodedChoices choice var =
+--   case lookup choice encodedChoices of
+--     Just pauliFn -> pauliFn var
+--     Nothing -> error "decodeChoice"
 
 -- type Pauli = Matrix (Complex Double)
 
@@ -218,16 +243,72 @@ decodeChoice encodedChoices choice var =
 --   in
 --   map (second (map (toPauli totalVarCount))) xs
 
-toPauli :: Int -> Int -> (VarId -> PauliExpr)
+-- scale :: ... -> Scaled a -> Scaled a
+-- scale :: ... -> Sum a -> Sum (Scaled a)
+
+class Scalable a b where
+  scale :: Complex Double -> a -> b
+
+instance Scalable (Scaled PauliExpr) (Scaled PauliExpr) where
+  scale k (Scale k' x) = scale (k * k') x
+
+instance Scalable a (Scaled a) => Scalable (Scaled (Summed a)) (Summed (Scaled a)) where
+  scale k (Scale k' x) = scale (k * k') x
+
+instance Scalable PauliExpr (Scaled PauliExpr) where
+  scale = Scale
+
+instance Scalable a b => Scalable (Summed a) (Summed b) where
+  scale k (Summed xs) = Summed $ map (scale k) xs
+
+instance Scalable (Tensor a) (Scaled (Tensor a)) where
+  scale = Scale
+
+instance Scalable (Scaled (Tensor a)) (Scaled (Tensor a)) where
+  scale k (Scale k' x) = Scale (k * k') x
+
+instance Scalable (Scaled a) (Scaled a) => Scalable (Tensor (Scaled a)) (Tensor (Scaled a)) where
+  scale k (Tensor xs) = Tensor $ map (scale k) xs
+
+tensor :: [ScaledPauli] -> Scaled (Tensor PauliExpr)
+tensor xs = scale (product (map getScalars xs)) (Tensor (map getVec xs))
+  where
+    getScalars (Scale k _) = k
+    getVec (Scale _ x) = x
+
+floatScalars :: Tensor ScaledPauli -> Scaled (Tensor PauliExpr)
+floatScalars = tensor . coerce
+
+-- instance Scalable a b => Scalable (Tensor a) (Tensor b) where
+--   scale _ (Tensor []) = Tensor []
+--   scale k (Tensor (x:xs)) = Tensor (scale k x : map (scale 1) xs)
+
+-- scale :: ScaledPauli -> ScaledPauli
+-- scale = undefined
+
+add :: ScaledPauli -> ScaledPauli -> Summed ScaledPauli
+add x y = Summed [x, y]
+
+sub :: ScaledPauli -> ScaledPauli -> Summed ScaledPauli
+sub x y = add x (scale (-1) y)
+
+pauliZ :: VarId -> ScaledPauli
+pauliZ x = scale 1 (Z x)
+
+pauliI :: VarId -> ScaledPauli
+pauliI x = scale 1 (I x)
+
+toPauli :: Int -> Int -> (VarId -> Tensor (Summed ScaledPauli))
 toPauli totalChoiceCount i
   | i > totalChoiceCount = error "toPauli: i > totalChoiceCount"
   | i >= length allBitStrings = error "toPauli: i >= length allBitStrings"
-  | otherwise = tensorBitString (allBitStrings !! i)
+  | otherwise = \var -> Tensor $ map ($ var) (allBitStrings !! i)
   where
-    tensorBitString = foldr1 (liftA2 Tensor)
+    -- tensorBitString = foldr1 (liftA2 Tensor)
 
-    pos x = Scale (1/2) (Sub (Z x) (I x))
-    neg x = Scale (1/2) (Add (Z x) (I x))
+    pos, neg :: VarId -> Summed ScaledPauli
+    pos x = scale (1/2) (sub (pauliZ x) (pauliI x)) --(Sub (Z x) (I x))
+    neg x = scale (1/2) (add (pauliZ x) (pauliI x)) --(Add (Z x) (I x))
 
     allBitStrings = replicateM bitSize [pos, neg]
 

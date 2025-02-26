@@ -11,7 +11,7 @@ eqSum ::
   [Int] -> Program [] Int Int
 eqSum inputList =
   Program
-    { choices = [0, 1]
+    { choices = [-1, 1]
     , struct = inputList
     , view = 2
     , constraints = \[(a, choiceA), (b, choiceB)] ->
