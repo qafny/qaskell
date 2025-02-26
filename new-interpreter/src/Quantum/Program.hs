@@ -1,4 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PatternSynonyms #-}
+
+{-# OPTIONS_GHC -Woverlapping-patterns #-}
 
 module Quantum.Program
   (Program (..)
@@ -14,7 +17,7 @@ import Control.Monad
 import Data.Functor
 
 import Data.Foldable
-import Data.List (nub)
+import Data.List (nub, partition)
 
 import Numeric.LinearAlgebra hiding ((<>), toList)
 import qualified Numeric.LinearAlgebra as Matrix
@@ -23,7 +26,9 @@ import Data.Bifunctor (first, second)
 
 type VarId = Int
 
-data PauliExpr = I VarId | Z VarId | Add PauliExpr PauliExpr | Sub PauliExpr PauliExpr | Scale (Complex Double) PauliExpr | Tensor PauliExpr PauliExpr
+data PauliExpr = I VarId | Z VarId | Add PauliExpr PauliExpr | Scale (Complex Double) PauliExpr | Tensor PauliExpr PauliExpr
+
+pattern Sub x y = Add x (Scale (-1) y)
 
 -- interpPauliExpr :: PauliExpr -> Pauli
 -- interpPauliExpr I = ident 2
@@ -33,11 +38,14 @@ data PauliExpr = I VarId | Z VarId | Add PauliExpr PauliExpr | Sub PauliExpr Pau
 -- interpPauliExpr (Scale k x) = scalar k * (interpPauliExpr x)
 -- interpPauliExpr (Tensor x y) = interpPauliExpr x Matrix.<> interpPauliExpr y
 
+isPauliCombinable :: PauliExpr -> PauliExpr -> Bool
+isPauliCombinable = undefined
+
 needsParens :: PauliExpr -> Bool
 needsParens I{} = False
 needsParens Z{} = False
-needsParens (Add {}) = True
 needsParens (Sub {}) = True
+needsParens (Add {}) = True
 needsParens (Tensor {}) = True
 needsParens (Scale {}) = False
 
@@ -53,8 +61,8 @@ showParens e =
 instance Show PauliExpr where
   show (I i) = "I(" ++ [("xyz" ++ ['a'..'w']) !! i] ++ ")"
   show (Z i) = "Z(" ++ [("xyz" ++ ['a'..'w']) !! i] ++ ")"
-  show (Add x y) = showParens x ++ " + " ++ showParens y
   show (Sub x y) = showParens x ++ " - " ++ showParens y
+  show (Add x y) = showParens x ++ " + " ++ showParens y
   show (Tensor x y) = showParens x ++ " ⊗ " ++ showParens y
   show (Scale k x) = prettyShow k ++ " " ++ showParens x
     where
@@ -82,27 +90,30 @@ generateVars :: Traversable t =>
   t a -> Fresh (t (Var a))
 generateVars = traverse (\x -> Var x <$> fresh)
 
--- solveProgramClassical :: forall t a. (Eq a, Ord a, Traversable t) =>
---   Program t a ->
---   a
--- solveProgramClassical prog =
---   let
---       varStruct :: t (Var a)
---       varStruct = runFresh (generateVars (struct prog))
+solveProgramClassical :: forall t a b. (Eq a, Ord a, Traversable t) =>
+  Program t a b ->
+  a
+solveProgramClassical prog =
+  let
+      varStruct :: t (Var a)
+      varStruct = runFresh (generateVars (struct prog))
 
---       tuples :: [[Var a]]
---       tuples = distinctNTuples (view prog) (toList varStruct)
+      tuples :: [[Var a]]
+      tuples = distinctNTuples (view prog) (toList varStruct)
 
---       actualTuples :: [[(Var a, a)]]
---       actualTuples = makeActualChoice (choices prog) tuples
+      actualTuples :: [[(Var a, b)]]
+      actualTuples = makeActualChoice (choices prog) tuples
 
---       encodedChoices :: [(t (a,Var a))]
---       encodedChoices = undefined
+      encodedChoices :: [(t (a,Var a))]
+      encodedChoices = undefined
 
---       results :: [t (a,a)]
---       results = undefined
---   in
---   undefined
+      constraintsApplied :: [([(Var a, b)], a)]
+      constraintsApplied = map (\x -> (x, constraints prog (map (first getVarPayload) x))) actualTuples
+
+      results :: [t (a,a)]
+      results = undefined
+  in
+  undefined
 
 solveProgram :: forall t a b. (Eq a, Eq b, Traversable t) =>
   Program t a b ->
@@ -134,6 +145,56 @@ solveProgram prog =
       results2 = map (\(x, varChoices) -> (x, map decode varChoices)) results
   in
   results2
+
+simplify :: Real a => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
+simplify =
+  map (second (concatMap expand)) -- Add (I x) (Z y) ==> [I x, Z y]
+  . combineLikePauli              -- [(0, xs), (1, ys), (0, zs)] ==> [(0, xs ++ zs), (1, ys)]
+
+-- | combineLike (\(x, _) (y, _) -> x == y)
+--               (<>)
+--               [(0, xs), (1, ys), (0, zs)]
+--     ==>
+--   [(0, xs <> zs), (1, ys)]
+combineLike ::
+  (a -> a -> Bool) ->
+  (a -> [a] -> b) ->
+  [a] ->
+  [b]
+combineLike isLike combine = go 
+  where
+    go [] = []
+    go (x:xs) =
+      let (likes, notLikes) = partition (isLike x) xs
+          newX = combine x likes
+      in
+      newX : go notLikes
+
+-- | groupResults [(0, xs), (1, ys), (0, zs)] ==> [(0, xs ++ zs), (1, ys)]
+groupFirsts :: Eq a => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
+groupFirsts = combineLike (\(x, _) (y, _) -> x == y) (\(x, pauli) likes -> (x, pauli ++ concatMap snd likes))
+
+combineLikePauli :: (Eq a, Real a) => [(a, [PauliExpr])] -> [(a, [PauliExpr])]
+combineLikePauli = undefined
+
+combinePauli :: [PauliExpr] -> [PauliExpr]
+combinePauli = undefined
+
+expand :: PauliExpr -> [PauliExpr]
+expand (Add x y) = expand x ++ expand y
+expand x = [x]
+
+distributeScalarMult :: PauliExpr -> PauliExpr
+distributeScalarMult (Scale k x) = distributeWithScalar k x
+distributeScalarMult (Add x y) = distributeScalarMult x
+distributeScalarMult (Tensor x y) = Tensor (distributeScalarMult x) (distributeScalarMult y)
+distributeScalarMult (I x) = I x
+distributeScalarMult (Z x) = Z x
+
+distributeWithScalar :: Complex Double -> PauliExpr -> PauliExpr
+distributeWithScalar k (Add x y) = Add (distributeWithScalar k x) (distributeWithScalar k y)
+distributeWithScalar k1 (Scale k2 x) = distributeWithScalar (k1 * k2) x
+distributeWithScalar k x = Scale k x
 
 encodeChoices :: [a] -> [(a, VarId -> PauliExpr)]
 encodeChoices choices = zipWith (\choice i -> (choice, toPauli choiceCount i)) choices [0..]
