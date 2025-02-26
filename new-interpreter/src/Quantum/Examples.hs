@@ -53,9 +53,11 @@ cliqueFinding cliqueSize edges =
             b = getVarPayload varB
         in
         if (a, b) `elem` edges
-        then choiceA * choiceB
-        else 0
+        then 0
+        else choiceA * choiceB
     }
+
+-- exactCover :: 
 
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]
