@@ -21,6 +21,45 @@ import Data.Bifunctor (second)
 
 type VarId = Int
 
+data PauliExpr = I | Z | Add PauliExpr PauliExpr | Sub PauliExpr PauliExpr | Scale (Complex Double) PauliExpr | Tensor PauliExpr PauliExpr
+
+interpPauliExpr :: PauliExpr -> Pauli
+interpPauliExpr I = ident 2
+interpPauliExpr Z = pauliZ
+interpPauliExpr (Add x y) = interpPauliExpr x + interpPauliExpr y
+interpPauliExpr (Sub x y) = interpPauliExpr x - interpPauliExpr y
+interpPauliExpr (Scale k x) = scalar k * (interpPauliExpr x)
+interpPauliExpr (Tensor x y) = interpPauliExpr x Matrix.<> interpPauliExpr y
+
+needsParens :: PauliExpr -> Bool
+needsParens I = False
+needsParens Z = False
+needsParens (Add {}) = True
+needsParens (Sub {}) = True
+needsParens (Tensor {}) = True
+needsParens (Scale {}) = False
+
+parens :: String -> String
+parens x = "(" ++ x ++ ")"
+
+showParens :: PauliExpr -> String
+showParens e =
+  if needsParens e
+  then parens (show e)
+  else show e
+
+instance Show PauliExpr where
+  show I = "I"
+  show Z = "Z"
+  show (Add x y) = showParens x ++ " + " ++ showParens y
+  show (Sub x y) = showParens x ++ " - " ++ showParens y
+  show (Tensor x y) = showParens x ++ " ⊗ " ++ showParens y
+  show (Scale k x) = prettyShow k ++ " " ++ showParens x
+    where
+      prettyShow (a :+ 0) = show a
+      prettyShow (0 :+ b) = show b ++ "i"
+      prettyShow (a :+ b) = parens (show a ++ " + " ++ show b ++ "i")
+
 data Var a = Var a VarId
   deriving (Show, Eq, Ord)
 
@@ -40,7 +79,7 @@ generateVars = traverse (\x -> Var x <$> fresh)
 
 solveProgram :: forall t a. (Eq a, Traversable t) =>
   Program t a ->
-  [(a, [Pauli])]
+  [(a, [PauliExpr])]
 solveProgram prog =
   let
       varStruct :: t (Var a)
@@ -62,7 +101,7 @@ solveProgram prog =
 
 type Pauli = Matrix (Complex Double)
 
-varsToPauli :: forall a. Eq a => [(a, [Var a])] -> [(a, [Pauli])]
+varsToPauli :: forall a. Eq a => [(a, [Var a])] -> [(a, [PauliExpr])]
 varsToPauli xs =
   let 
       freeVars :: [Var a]
@@ -72,16 +111,16 @@ varsToPauli xs =
   in
   map (second (map (toPauli totalVarCount))) xs
 
-toPauli :: Int -> Var a -> Pauli
+toPauli :: Int -> Var a -> PauliExpr
 toPauli totalVarCount (Var _ x)
   | x > totalVarCount = error "compileVar: x > totalVarCount"
   | x >= length allBitStrings = error "compileVar: x >= length allBitStrings"
   | otherwise = tensorBitString (allBitStrings !! x)
   where
-    tensorBitString = foldr1 (Matrix.<>)
+    tensorBitString = foldr1 Tensor
 
-    pos = (pauliZ - ident 2) / 2
-    neg = (pauliZ + ident 2) / 2
+    pos = Scale (1/2) (Sub Z I)
+    neg = Scale (1/2) (Add Z I)
 
     allBitStrings = replicateM bitSize [pos, neg]
 

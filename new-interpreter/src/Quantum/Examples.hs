@@ -24,6 +24,15 @@ graphColoring colorCount edges =
       then 1
       else 0
 
+-- cliqueFinding ::
+--   Int -> AdjList Int -> Program [] Int
+-- cliqueFinding cliqueSize edges =
+--   Program
+--     { choices = [0, 1]
+--     , struct = getNodes edges
+--     , view = 
+--     }
+
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]
 getNodes = nub . concatMap (\(x, y) -> [x, y])
