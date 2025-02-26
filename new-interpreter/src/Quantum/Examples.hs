@@ -5,6 +5,19 @@ import Quantum.ExampleData
 
 import Data.List (nub)
 
+eqSum ::
+  [Int] -> Program [] Int
+eqSum inputList =
+  Program
+    { choices = [0, 1]
+    , struct = inputList
+    , view = 2
+    , constraints = \[(varX, choiceX), (varY, choiceY)] ->
+        (choiceX * getVarPayload varX)
+          +
+        (choiceY * getVarPayload varY)
+    }
+
 graphColoring ::
   Int -> [(Int, Int)] -> Program [] Int
 graphColoring colorCount edges = 
