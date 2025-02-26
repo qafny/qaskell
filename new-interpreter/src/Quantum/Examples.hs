@@ -66,8 +66,6 @@ exactCover cover =
           else 1
     }
 
--- exactCover :: 
-
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]
 getNodes = nub . concatMap (\(x, y) -> [x, y])

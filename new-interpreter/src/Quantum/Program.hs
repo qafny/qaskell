@@ -11,6 +11,8 @@ module Quantum.Program
 import Control.Monad.State
 import Control.Monad
 
+import Data.Functor
+
 import Data.Foldable
 import Data.List (nub)
 
@@ -69,19 +71,41 @@ getVarPayload (Var x _) = x
 getVarId :: Var a -> VarId
 getVarId (Var _ i) = i
 
-data Program t a =
+data Program t a b =
   Program
-    { choices :: [a]
+    { choices :: [b]
     , struct :: t a
     , view :: Int
-    , constraints :: [(a, a)] -> a
+    , constraints :: [(a, b)] -> a
     }
 generateVars :: Traversable t =>
   t a -> Fresh (t (Var a))
 generateVars = traverse (\x -> Var x <$> fresh)
 
-solveProgram :: forall t a. (Eq a, Traversable t) =>
-  Program t a ->
+-- solveProgramClassical :: forall t a. (Eq a, Ord a, Traversable t) =>
+--   Program t a ->
+--   a
+-- solveProgramClassical prog =
+--   let
+--       varStruct :: t (Var a)
+--       varStruct = runFresh (generateVars (struct prog))
+
+--       tuples :: [[Var a]]
+--       tuples = distinctNTuples (view prog) (toList varStruct)
+
+--       actualTuples :: [[(Var a, a)]]
+--       actualTuples = makeActualChoice (choices prog) tuples
+
+--       encodedChoices :: [(t (a,Var a))]
+--       encodedChoices = undefined
+
+--       results :: [t (a,a)]
+--       results = undefined
+--   in
+--   undefined
+
+solveProgram :: forall t a b. (Eq a, Eq b, Traversable t) =>
+  Program t a b ->
   [(a, [PauliExpr])]
 solveProgram prog =
   let
@@ -92,18 +116,18 @@ solveProgram prog =
       pairs = distinctNTuples (view prog)
                               (toList varStruct)
 
-      actualPairs :: [[(Var a, a)]]
+      actualPairs :: [[(Var a, b)]]
       actualPairs = makeActualChoice (choices prog)
                                      pairs
 
-      encodedChoices :: [(a, VarId -> PauliExpr)]
+      encodedChoices :: [(b, VarId -> PauliExpr)]
       encodedChoices = encodeChoices (choices prog)
 
-      results :: [(a, [(Var a, a)])]
+      results :: [(a, [(Var a, b)])]
       results = map (\x -> (constraints prog (map (first getVarPayload) x), x))
                     actualPairs
 
-      decode :: (Var a, a) -> PauliExpr
+      decode :: (Var a, b) -> PauliExpr
       decode (var, choice) = decodeChoice encodedChoices choice (getVarId var)
 
       results2 :: [(a, [PauliExpr])]
