@@ -315,8 +315,8 @@ toPauli totalChoiceCount i
     -- tensorBitString = foldr1 (liftA2 Tensor)
 
     pos, neg :: VarId -> Summed ScaledPauli
-    pos x = scaleSummed (1/2) (sub (pauliZ x) (pauliI x)) --(Sub (Z x) (I x))
-    neg x = scaleSummed (1/2) (add (pauliZ x) (pauliI x)) --(Add (Z x) (I x))
+    pos x = scaleSummed (1/2) (sub (pauliI x) (pauliZ x)) --(Sub (Z x) (I x))
+    neg x = scaleSummed (1/2) (add (pauliI x) (pauliZ x)) --(Add (Z x) (I x))
 
     allBitStrings = replicateM bitSize [pos, neg]
 
