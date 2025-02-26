@@ -16,7 +16,7 @@ eqSum inputList =
     , view = 2
     , constraints = \[(a, choiceA), (b, choiceB)] ->
         (a * choiceA)
-          +
+          *
         (b * choiceB)
     }
 

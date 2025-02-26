@@ -33,6 +33,7 @@ data PauliExpr = I VarId | Z VarId
   deriving (Eq)
 
 data Scaled a = Scale (Complex Double) a
+  deriving (Functor)
 
 newtype Tensor a = Tensor [a]
   deriving (Functor, Eq, Foldable, Traversable)
@@ -151,28 +152,26 @@ solveProgram prog =
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
       decode (var, choice) = decodeChoice encodedChoices choice (getVarId var)
 
-      decodeAndDistribute :: (Var a, b) -> Summed (Tensor ScaledPauli) 
-      decodeAndDistribute = distribute . decode
+      decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
+      decodeAndDistribute = fmap floatScalars . distribute . decode
 
-      results2 :: [(a, Tensor (Summed (Tensor ScaledPauli)))]
+      results2 :: [(a, Tensor (Summed (Scaled (Tensor PauliExpr))))]
       results2 = map (second Tensor) $ map (\(x, varChoices) -> (x, map decodeAndDistribute varChoices)) results
 
-      results3 :: [(a, Summed (Tensor ScaledPauli))]
-      results3 = map (second (fmap joinTensor . distribute)) results2
+      results3 :: [(a, Summed (Scaled (Tensor PauliExpr)))]
+      results3 = map (second (fmap commuteScaledTensor . distribute)) results2
 
-      results4 :: [(Complex Double, Summed (Tensor ScaledPauli))]
+      results4 :: [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
       results4 = map (first toComplex) results3
 
-      results5 :: [Summed (Tensor ScaledPauli)]
-      results5 = map (uncurry scale) results4
+      results5 :: [Summed (Scaled (Tensor PauliExpr))]
+      results5 = map (\(k, x) -> fmap (scale k) x) results4
 
-      results6 :: Summed (Tensor ScaledPauli)
+      results6 :: Summed (Scaled (Tensor PauliExpr))
       results6 = joinSummed $ Summed results5
-
-      results7 :: Summed (Scaled (Tensor PauliExpr))
-      results7 = fmap floatScalars results6
   in
-  eliminateZeroes $ collectLikes results7
+  -- results6
+  eliminateZeroes $ collectLikes results6
   where
     toComplex :: a -> Complex Double
     toComplex = fromRational . toRational
@@ -192,7 +191,7 @@ collectLikes (Summed xs0) = Summed $ go xs0
     -- | Precondition: the second item of the Scale should be the same for
     -- both arguments
     combine :: Scaled a -> Scaled a -> Scaled a
-    combine (Scale k x) (Scale k' _) = Scale (k * k') x
+    combine (Scale k x) (Scale k' _) = Scale (k + k') x
 
     combineList :: Scaled a -> [Scaled a] -> Scaled a
     combineList = foldr combine
@@ -204,6 +203,9 @@ collectLikes (Summed xs0) = Summed $ go xs0
           newX = combineList x likes
       in
       newX : go notLikes
+
+commuteScaledTensor :: Tensor (Scaled (Tensor a)) -> Scaled (Tensor a)
+commuteScaledTensor = fmap joinTensor . floatScalars
 
 joinSummed :: forall a. Summed (Summed a) -> Summed a
 joinSummed xs = coerce (concat (coerce xs :: [[a]]))
@@ -246,37 +248,43 @@ decodeChoice encodedChoices choice var =
 -- scale :: ... -> Scaled a -> Scaled a
 -- scale :: ... -> Sum a -> Sum (Scaled a)
 
-class Scalable a b where
-  scale :: Complex Double -> a -> b
+-- class Scalable a b where
+--   scale :: Complex Double -> a -> b
 
-instance Scalable (Scaled PauliExpr) (Scaled PauliExpr) where
-  scale k (Scale k' x) = scale (k * k') x
+-- instance Scalable (Scaled PauliExpr) (Scaled PauliExpr) where
+--   scale k (Scale k' x) = scale (k * k') x
 
-instance Scalable a (Scaled a) => Scalable (Scaled (Summed a)) (Summed (Scaled a)) where
-  scale k (Scale k' x) = scale (k * k') x
+-- instance Scalable a (Scaled a) => Scalable (Scaled (Summed a)) (Summed (Scaled a)) where
+--   scale k (Scale k' x) = scale (k * k') x
 
-instance Scalable PauliExpr (Scaled PauliExpr) where
-  scale = Scale
+-- instance Scalable PauliExpr (Scaled PauliExpr) where
+--   scale = Scale
 
-instance Scalable a b => Scalable (Summed a) (Summed b) where
-  scale k (Summed xs) = Summed $ map (scale k) xs
+-- instance Scalable a b => Scalable (Summed a) (Summed b) where
+--   scale k (Summed xs) = Summed $ map (scale k) xs
 
-instance Scalable (Tensor a) (Scaled (Tensor a)) where
-  scale = Scale
+-- instance Scalable (Tensor a) (Scaled (Tensor a)) where
+--   scale = Scale
 
-instance Scalable (Scaled (Tensor a)) (Scaled (Tensor a)) where
-  scale k (Scale k' x) = Scale (k * k') x
+-- instance Scalable (Scaled (Tensor a)) (Scaled (Tensor a)) where
+--   scale k (Scale k' x) = Scale (k * k') x
 
-instance Scalable (Scaled a) (Scaled a) => Scalable (Tensor (Scaled a)) (Tensor (Scaled a)) where
-  scale k (Tensor xs) = Tensor $ map (scale k) xs
+-- instance Scalable (Scaled a) (Scaled a) => Scalable (Tensor (Scaled a)) (Tensor (Scaled a)) where
+--   scale k (Tensor xs) = Tensor $ map (scale k) xs
 
-tensor :: [ScaledPauli] -> Scaled (Tensor PauliExpr)
-tensor xs = scale (product (map getScalars xs)) (Tensor (map getVec xs))
+scale :: Complex Double -> Scaled a -> Scaled a
+scale k (Scale k' x) = Scale (k * k') x
+
+scaleSummed :: Complex Double -> Summed (Scaled a) -> Summed (Scaled a)
+scaleSummed k = fmap (scale k)
+
+tensor :: [Scaled a] -> Scaled (Tensor a)
+tensor xs = Scale (product (map getScalar xs)) (Tensor (map getVec xs))
   where
-    getScalars (Scale k _) = k
+    getScalar (Scale k _) = k
     getVec (Scale _ x) = x
 
-floatScalars :: Tensor ScaledPauli -> Scaled (Tensor PauliExpr)
+floatScalars :: Tensor (Scaled a) -> Scaled (Tensor a)
 floatScalars = tensor . coerce
 
 -- instance Scalable a b => Scalable (Tensor a) (Tensor b) where
@@ -293,10 +301,10 @@ sub :: ScaledPauli -> ScaledPauli -> Summed ScaledPauli
 sub x y = add x (scale (-1) y)
 
 pauliZ :: VarId -> ScaledPauli
-pauliZ x = scale 1 (Z x)
+pauliZ x = Scale 1 (Z x)
 
 pauliI :: VarId -> ScaledPauli
-pauliI x = scale 1 (I x)
+pauliI x = Scale 1 (I x)
 
 toPauli :: Int -> Int -> (VarId -> Tensor (Summed ScaledPauli))
 toPauli totalChoiceCount i
@@ -307,8 +315,8 @@ toPauli totalChoiceCount i
     -- tensorBitString = foldr1 (liftA2 Tensor)
 
     pos, neg :: VarId -> Summed ScaledPauli
-    pos x = scale (1/2) (sub (pauliZ x) (pauliI x)) --(Sub (Z x) (I x))
-    neg x = scale (1/2) (add (pauliZ x) (pauliI x)) --(Add (Z x) (I x))
+    pos x = scaleSummed (1/2) (sub (pauliZ x) (pauliI x)) --(Sub (Z x) (I x))
+    neg x = scaleSummed (1/2) (add (pauliZ x) (pauliI x)) --(Add (Z x) (I x))
 
     allBitStrings = replicateM bitSize [pos, neg]
 
