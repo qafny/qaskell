@@ -91,34 +91,40 @@ data Program t a b =
     , view :: Int
     , constraints :: [(a, b)] -> a
     }
+
 generateVars :: Traversable t =>
   t a -> Fresh (t (Var a))
 generateVars = traverse (\x -> Var x <$> fresh)
 
-solveProgramClassical :: forall t a b. (Eq a, Ord a, Traversable t) =>
-  Program t a b ->
+solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
+  Program [] a b ->
   a
 solveProgramClassical prog =
   let
-      varStruct :: t (Var a)
+      varStruct :: [Var a]
       varStruct = runFresh (generateVars (struct prog))
 
-      tuples :: [[Var a]]
-      tuples = distinctNTuples (view prog) (toList varStruct)
+      pairs :: [[Var a]]
+      pairs = distinctNTuples (view prog)
+                              (toList varStruct)
 
-      actualTuples :: [[(Var a, b)]]
-      actualTuples = makeActualChoice (choices prog) tuples
+      isHit :: [Var a] -> Bool
+      isHit = (`isSubListOf` struct prog) . map getVarPayload
 
-      encodedChoices :: [(t (a,Var a))]
-      encodedChoices = undefined
+      pairHits :: [[Var a]]
+      pairHits = filter isHit pairs
 
-      constraintsApplied :: [([(Var a, b)], a)]
-      constraintsApplied = map (\x -> (x, constraints prog (map (first getVarPayload) x))) actualTuples
+      actualPairs :: [[(Var a, b)]]
+      actualPairs = makeActualChoice (choices prog)
+                                     pairHits
 
-      results :: [t (a,a)]
-      results = undefined
+      results :: [a]
+      results = map (\x -> (constraints prog (map (first getVarPayload) x)))
+                    actualPairs
   in
-  undefined
+  minimum results
+  where
+    isSubListOf xs ys = all (`elem` ys) xs
 
 solveProgram :: forall t a b. (Eq a, Eq b, Real a, Traversable t) =>
   Program t a b ->
