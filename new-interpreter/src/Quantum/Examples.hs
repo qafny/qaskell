@@ -1,6 +1,8 @@
 module Quantum.Examples where
 
 import Quantum.Program
+import Quantum.ExampleData
+
 import Data.List (nub)
 
 graphColoring ::
