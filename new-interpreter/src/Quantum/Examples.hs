@@ -5,6 +5,8 @@ import Quantum.ExampleData
 
 import Data.List (nub)
 
+-- ghci> solveProgram (eqSum [1, 2])
+-- ...
 eqSum ::
   [Int] -> Program [] Int
 eqSum inputList =
@@ -18,6 +20,8 @@ eqSum inputList =
         (choiceY * getVarPayload varY)
     }
 
+-- ghci> solveProgram (graphColoring 2 graph1)
+-- ...
 graphColoring ::
   Int -> [(Int, Int)] -> Program [] Int
 graphColoring colorCount edges = 
