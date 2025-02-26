@@ -2,6 +2,8 @@
 
 module Quantum.Program
   (Program (..)
+  ,Var
+  ,getVarPayload
   ,solveProgram
   )
   where
@@ -21,6 +23,9 @@ type VarId = Int
 
 data Var a = Var a VarId
   deriving (Show, Eq, Ord)
+
+getVarPayload :: Var a -> a
+getVarPayload (Var x _) = x
 
 data Program t a =
   Program
