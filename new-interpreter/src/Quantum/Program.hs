@@ -5,12 +5,6 @@
 {-# OPTIONS_GHC -Woverlapping-patterns -Wincomplete-patterns #-}
 
 module Quantum.Program
-  -- (Program (..)
-  -- ,Var
-  -- ,getVarPayload
-  -- ,solveProgram
-  -- ,simplify
-  -- )
   where
 
 import Control.Monad.State
@@ -170,7 +164,6 @@ solveProgram prog =
       results6 :: Summed (Scaled (Tensor PauliExpr))
       results6 = joinSummed $ Summed results5
   in
-  -- results6
   eliminateZeroes $ collectLikes results6
   where
     toComplex :: a -> Complex Double
@@ -227,51 +220,6 @@ decodeChoice encodedChoices choice var =
     Just pauliFn -> pauliFn var
     Nothing -> error "decodeChoice"
 
--- decodeChoice :: Eq a => [(a, s -> t)] -> a -> s -> t
--- decodeChoice encodedChoices choice var =
---   case lookup choice encodedChoices of
---     Just pauliFn -> pauliFn var
---     Nothing -> error "decodeChoice"
-
--- type Pauli = Matrix (Complex Double)
-
--- varsToPauli :: forall a. Eq a => [(a, [Var a])] -> [(a, [PauliExpr])]
--- varsToPauli xs =
---   let 
---       freeVars :: [Var a]
---       freeVars = nub $ concatMap snd xs -- Collect Vars and remove duplicates
-
---       totalVarCount = length freeVars
---   in
---   map (second (map (toPauli totalVarCount))) xs
-
--- scale :: ... -> Scaled a -> Scaled a
--- scale :: ... -> Sum a -> Sum (Scaled a)
-
--- class Scalable a b where
---   scale :: Complex Double -> a -> b
-
--- instance Scalable (Scaled PauliExpr) (Scaled PauliExpr) where
---   scale k (Scale k' x) = scale (k * k') x
-
--- instance Scalable a (Scaled a) => Scalable (Scaled (Summed a)) (Summed (Scaled a)) where
---   scale k (Scale k' x) = scale (k * k') x
-
--- instance Scalable PauliExpr (Scaled PauliExpr) where
---   scale = Scale
-
--- instance Scalable a b => Scalable (Summed a) (Summed b) where
---   scale k (Summed xs) = Summed $ map (scale k) xs
-
--- instance Scalable (Tensor a) (Scaled (Tensor a)) where
---   scale = Scale
-
--- instance Scalable (Scaled (Tensor a)) (Scaled (Tensor a)) where
---   scale k (Scale k' x) = Scale (k * k') x
-
--- instance Scalable (Scaled a) (Scaled a) => Scalable (Tensor (Scaled a)) (Tensor (Scaled a)) where
---   scale k (Tensor xs) = Tensor $ map (scale k) xs
-
 scale :: Complex Double -> Scaled a -> Scaled a
 scale k (Scale k' x) = Scale (k * k') x
 
@@ -286,13 +234,6 @@ tensor xs = Scale (product (map getScalar xs)) (Tensor (map getVec xs))
 
 floatScalars :: Tensor (Scaled a) -> Scaled (Tensor a)
 floatScalars = tensor . coerce
-
--- instance Scalable a b => Scalable (Tensor a) (Tensor b) where
---   scale _ (Tensor []) = Tensor []
---   scale k (Tensor (x:xs)) = Tensor (scale k x : map (scale 1) xs)
-
--- scale :: ScaledPauli -> ScaledPauli
--- scale = undefined
 
 add :: ScaledPauli -> ScaledPauli -> Summed ScaledPauli
 add x y = Summed [x, y]
@@ -312,22 +253,13 @@ toPauli totalChoiceCount i
   | i >= length allBitStrings = error "toPauli: i >= length allBitStrings"
   | otherwise = \var -> Tensor $ map ($ var) (allBitStrings !! i)
   where
-    -- tensorBitString = foldr1 (liftA2 Tensor)
-
     pos, neg :: VarId -> Summed ScaledPauli
-    pos x = scaleSummed (1/2) (sub (pauliI x) (pauliZ x)) --(Sub (Z x) (I x))
-    neg x = scaleSummed (1/2) (add (pauliI x) (pauliZ x)) --(Add (Z x) (I x))
+    pos x = scaleSummed (1/2) (sub (pauliI x) (pauliZ x))
+    neg x = scaleSummed (1/2) (add (pauliI x) (pauliZ x))
 
     allBitStrings = replicateM bitSize [pos, neg]
 
     bitSize = neededBitSize totalChoiceCount
-
--- pauliZ :: Matrix (Complex Double)
--- pauliZ =
---   (2><2)
---   [ 1, 0
---   , 0, -1
---   ]
 
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
