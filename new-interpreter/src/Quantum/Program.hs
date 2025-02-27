@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 
 {-# OPTIONS_GHC -Woverlapping-patterns -Wincomplete-patterns #-}
 
@@ -20,6 +22,8 @@ import Numeric.LinearAlgebra hiding ((<>), toList, scale, add, sub)
 import qualified Numeric.LinearAlgebra as Matrix
 import Data.Complex
 import Data.Bifunctor (first, second)
+
+import Quantum.DistinctDepthN
 
 type VarId = Int
 
@@ -89,7 +93,7 @@ data Program t a b c =
     { choices :: [b]
     , struct :: t a
     , view :: Int
-    , constraints :: [(a, b)] -> c
+    , constraints :: t (a, b) -> c
     }
 
 generateVars :: Traversable t =>
@@ -105,8 +109,8 @@ solveProgramClassical prog =
       varStruct = runFresh (generateVars (struct prog))
 
       pairs :: [[Var a]]
-      pairs = distinctNTuples (view prog)
-                              (toList varStruct)
+      pairs = distinctDepthN (view prog)
+                             (varStruct)
 
       isHit :: [Var a] -> Bool
       isHit = (`isSubListOf` struct prog) . map getVarPayload
@@ -126,7 +130,7 @@ solveProgramClassical prog =
   where
     isSubListOf xs ys = all (`elem` ys) xs
 
-solveProgram :: forall t a b c. (Eq a, Eq b, Real c, Traversable t) =>
+solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
 solveProgram prog =
@@ -134,19 +138,18 @@ solveProgram prog =
       varStruct :: t (Var a)
       varStruct = runFresh (generateVars (struct prog))
 
-      pairs :: [[Var a]]
-      pairs = distinctNTuples (view prog)
-                              (toList varStruct)
-
-      actualPairs :: [[(Var a, b)]]
+      pairs :: [t (Var a)]
+      pairs = distinctDepthN (view prog)
+                             varStruct
+      actualPairs :: [t (Var a, b)]
       actualPairs = makeActualChoice (choices prog)
                                      pairs
 
       encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
       encodedChoices = encodeChoices (choices prog)
 
-      results :: [(c, [(Var a, b)])]
-      results = map (\x -> (constraints prog (map (first getVarPayload) x), x))
+      results :: [(c, t (Var a, b))]
+      results = map (\x -> (constraints prog (fmap (first getVarPayload) x), x))
                     actualPairs
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
@@ -156,7 +159,11 @@ solveProgram prog =
       decodeAndDistribute = fmap floatScalars . distribute . decode
 
       results2 :: [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
-      results2 = map (second Tensor) $ map (\(x, varChoices) -> (x, map decodeAndDistribute varChoices)) results
+      results2 =
+        map (second (Tensor . toList)) $ -- TODO: Does toList just make this work?
+        fmap (\(x, varChoices) ->
+                (x, fmap decodeAndDistribute varChoices))
+             results
 
       results3 :: [(c, Summed (Scaled (Tensor PauliExpr)))]
       results3 = map (second (fmap commuteScaledTensor . distribute)) results2
@@ -270,18 +277,22 @@ toPauli totalChoiceCount i
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
 
-makeActualChoice :: [b] -> [[a]] -> [[(a, b)]]
+makeActualChoice :: Traversable t => [b] -> [t a] -> [t (a, b)]
 makeActualChoice choices xss = do
   xs <- xss
   ys <- replicateM (length xs) choices
-  let zs = zip xs ys
-  pure zs
+  pure (fillTraversablePairs ys xs)
 
--- | Postcondition: In the result of `distinctNTuples n xs`, the sublists
--- all have length `n`.
-distinctNTuples :: Int -> [a] -> [[a]]
-distinctNTuples n xs =
-  filter ((== n) . length) $ filterM (const [False, True]) xs
+fillTraversablePairs :: Traversable t => [a] -> t b -> t (b, a)
+fillTraversablePairs xs t = evalState (traverse makeStatePair t) xs
+  where
+    makeStatePair b = state $ \case
+      [] -> error "Not enough elements in the list"
+      (a:as) -> ((b, a), as)
+
+-- -- instance DistinctTuples [] where
+-- distinctNTuples n xs =
+--   filter ((== n) . length) $ filterM (const [False, True]) xs
 
 newtype Fresh a = Fresh (State VarId a)
   deriving (Functor, Applicative, Monad)
