@@ -135,6 +135,9 @@ solveClassical prog =
      tuples :: [t (Var a)]
      tuples = distinctNTuples (view prog) varStruct
 
+     actualTuples :: [t (Var a, b)]
+     actualTuples = assignChoices (choices prog) tuples
+
      createdTuples :: [[(t (Var a), b)]]
      createdTuples = createChoices (choices prog) tuples
   in undefined
