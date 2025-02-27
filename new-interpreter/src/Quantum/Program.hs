@@ -109,8 +109,8 @@ solveProgramClassical prog =
       varStruct = runFresh (genChoices (struct prog))
 
       pairs :: [[Var a]]
-      pairs = distinctDepthN (view prog)
-                             (varStruct)
+      pairs = distinctNTuples (view prog)
+                              (varStruct)
 
       isHit :: [Var a] -> Bool
       isHit = (`isSubListOf` struct prog) . map getVarPayload
@@ -139,8 +139,8 @@ solveProgram prog =
       varStruct = runFresh (genChoices (struct prog))
 
       pairs :: [t (Var a)]
-      pairs = distinctDepthN (view prog)
-                             varStruct
+      pairs = distinctNTuples (view prog)
+                              varStruct
       actualPairs :: [t (Var a, b)]
       actualPairs = assignChoices (choices prog)
                                   pairs

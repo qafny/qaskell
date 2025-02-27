@@ -30,13 +30,13 @@ instance Part [a] where
 data Action = Descend | TruncateHere
   deriving (Show)
 
-distinctDepthN :: (Eq a, Part a) => Int -> a -> [a]
-distinctDepthN n t = nub $ do
+distinctNTuples :: (Eq a, Part a) => Int -> a -> [a]
+distinctNTuples n t = nub $ do
   action <- [Descend, TruncateHere]
   case action of
     Descend -> do
       child <- immediateChildren t
-      distinctDepthN n child
+      distinctNTuples n child
 
     TruncateHere -> maybeToList $ truncateHere n t
 
