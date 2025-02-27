@@ -95,6 +95,9 @@ data Expr f a
 deriving instance (Show a, Show (f (Expr f a)), Show (f (Expr f a, Expr f a))) =>
   Show (Expr f a)
 
+deriving instance (Eq a, Eq (f (Expr f a)), Eq (f (Expr f a, Expr f a))) =>
+  Eq (Expr f a)
+
 mmorphExpr :: Functor f =>
   (forall a. f a -> g a) ->
   Expr f a ->
@@ -110,7 +113,7 @@ maybeExpr :: Expr Identity a -> Maybe (Expr Maybe a)
 maybeExpr = Just . mmorphExpr (Just . runIdentity)
 
 newtype MaybeExpr a = MaybeExpr { unMaybeExpr :: Maybe (Expr Maybe a) }
-  deriving (Functor, Foldable, Traversable)
+  deriving (Functor, Foldable, Traversable, Eq)
 
 pattern EmptyM = MaybeExpr Nothing
 pattern VarM x ann = MaybeExpr (Just (Var x ann))
@@ -134,6 +137,9 @@ lambda :: String -> Type -> MaybeExpr () -> MaybeExpr ()
 lambda x ty body = MaybeExpr $ do
   body' <- unMaybeExpr body
   unMaybeExpr $ LambdaM x ty (Just body') emptyTyInCtx
+
+expr1 :: MaybeExpr ()
+expr1 = lambda "x" IntType (var "x")
 
 instance Part (MaybeExpr a) where
   immediateChildren = coerce (immediateChildren :: (Maybe (Expr Maybe a) -> [Maybe (Expr Maybe a)]))
@@ -211,7 +217,7 @@ data TypeInCtx a =
   { ctx :: Ctx a
   , ty :: a
   }
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Show, Functor, Foldable, Traversable, Eq)
 
 emptyTyInCtx :: TypeInCtx ()
 emptyTyInCtx = TypeInCtx [] ()
@@ -251,13 +257,13 @@ maybeToEnergy :: Maybe a -> Int
 maybeToEnergy Nothing = 1
 maybeToEnergy (Just _) = 0
 
-inferType :: MaybeExpr () -> Program MaybeExpr () Type (Maybe Type)
+inferType :: MaybeExpr () -> Program MaybeExpr () Type Int
 inferType expr =
   Program
     { choices = map nAryIntType [0..length expr]
     , struct = makeBlankExpr expr
     , view = 2
-    , constraints =
+    , constraints = maybeToEnergy .
         \case
           EmptyM -> Nothing
           VarM x tyInCtx -> do
