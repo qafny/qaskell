@@ -83,11 +83,11 @@ instance Show PauliExpr where
 data Var a = Var a VarId
   deriving (Show, Eq, Ord)
 
-getVarPayload :: Var a -> a
-getVarPayload (Var x _) = x
+choice :: Var a -> a
+choice (Var x _) = x
 
-getVarId :: Var a -> VarId
-getVarId (Var _ i) = i
+var :: Var a -> VarId
+var (Var _ i) = i
 
 data Program t a b c =
   Program
@@ -101,18 +101,18 @@ genChoices :: Traversable t =>
   t a -> Fresh (t (Var a))
 genChoices = traverse (\x -> Var x <$> fresh)
 
-newtype Classical a = Classical a
-newtype Quantum a = Quantum a
+-- newtype Classical a = Classical a
+-- newtype Quantum a = Quantum a
 
-class Solve r where
-  solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
-    Program t a b c ->
-    r
+-- class Solve r where
+--   solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+--     Program t a b c ->
+--     r
 
 -- instance Solve 
 
-instance Solve (Summed (Scaled (Tensor PauliExpr))) where
-  solveProgram = solveProgramQuantum
+-- instance Solve (Summed (Scaled (Tensor PauliExpr))) where
+--   solveProgram = solveProgramQuantum
 
 -- createChoices :: Traversable t => [b] -> t a -> [(t (Var (a, b)))]
 -- createChoices ds = traverse (\a -> msum (map (go a) ds))
@@ -124,35 +124,37 @@ minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
-solveClassical :: forall t a b. (Eq a, Eq b, Eq (t (Var a)), Part (t (Var a)), Ord a, Real a, Traversable t) =>
-  Program t a b a ->
-  a
+solveClassical :: (Part (t (Var a)), Traversable t, Ord c, Num c, Eq a, Eq b, Eq (t (Var a))) =>
+   Program t a b c ->
+   [(c, t (a, b))]
 solveClassical prog =
- let
-     varStruct :: t (Var a)
+  let
+     -- varStruct :: t (Var a)
      varStruct = runFresh (genChoices (struct prog))
 
-     tuples :: [t (Var a)]
+     -- tuples :: [t (Var a)]
      tuples = distinctNTuples (view prog) varStruct
 
-     actualTuples :: [t (Var a, b)]
+     -- actualTuples :: [t (Var a, b)]
      actualTuples = assignChoices (choices prog) tuples
 
-     encodedChoices :: [[(t (Var a), b)]]
-     encodedChoices = createChoices (choices prog) tuples
-  in undefined
+     -- encodedChoices :: [t (Var a, b)]
+     encodedChoices = createChoices (choices prog) varStruct
 
-     -- encodedChoices :: [(t (Var (a, b)))]
-     -- encodedChoices = createChoices (choices prog) (struct prog)
-
-     -- results :: [t (a, b)]
-     -- results = minimumsFst $ encodedChoices <&>
-     --              (\ aChoice -> sum $ actualTuples <&>
-     --                 (\ aTuple -> if isSubList aTuple (toList aChoice)
-     --                              then (constraints prog (map choice aTuple))
-     --                              else 0) , fmap choice aChoice)
-     --           where isSubList xs ys = all (`elem` ys) xs
- -- in undefined --results
+     -- results :: [(a, t (a, b))]
+     results =
+          minimumsFst $
+          encodedChoices <&>
+                  (\ aChoice ->
+                    (sum $ actualTuples <&>
+                                 (\ aTuple -> if isSubList aTuple (toList aChoice)
+                                              then (constraints prog (fmap (first choice) aTuple))
+                                              else 0
+                                              )
+                    ,fmap (first choice) aChoice)
+                    )
+               where isSubList xs ys = all (`elem` ys) xs
+  in results
 
 
 -- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
@@ -168,7 +170,7 @@ solveClassical prog =
 --                               (varStruct)
 
 --       isHit :: [Var a] -> Bool
---       isHit = (`isSubListOf` struct prog) . map getVarPayload
+--       isHit = (`isSubListOf` struct prog) . map choice
 
 --       pairHits :: [[Var a]]
 --       pairHits = filter isHit pairs
@@ -178,7 +180,7 @@ solveClassical prog =
 --                                   pairHits
 
 --       results :: [a]
---       results = map (\x -> (constraints prog (map (first getVarPayload) x)))
+--       results = map (\x -> (constraints prog (map (first choice) x)))
 --                     actualPairs
 --   in
 --   minimum results
@@ -198,7 +200,7 @@ solveClassical prog =
 --                               (varStruct)
 
 --       isHit :: [Var a] -> Bool
---       isHit = (`isSubListOf` struct prog) . map getVarPayload
+--       isHit = (`isSubListOf` struct prog) . map choice
 
 --       pairHits :: [[Var a]]
 --       pairHits = filter isHit pairs
@@ -208,17 +210,17 @@ solveClassical prog =
 --                                   pairHits
 
 --       results :: [a]
---       results = map (\x -> (constraints prog (map (first getVarPayload) x)))
+--       results = map (\x -> (constraints prog (map (first choice) x)))
 --                     actualPairs
 --   in
 --   minimum results
 --   where
 --     isSubListOf xs ys = all (`elem` ys) xs
 
-solveProgramQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
-solveProgramQuantum prog =
+solveQuantum prog =
   let
       varStruct :: t (Var a)
       varStruct = runFresh (genChoices (struct prog))
@@ -234,11 +236,11 @@ solveProgramQuantum prog =
       encodedChoices = encodeChoices (choices prog)
 
       results :: [(c, t (Var a, b))]
-      results = map (\x -> (constraints prog (fmap (first getVarPayload) x), x))
+      results = map (\x -> (constraints prog (fmap (first choice) x), x))
                     actualPairs
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
-      decode (var, choice) = decodeChoice encodedChoices choice (getVarId var)
+      decode (x, choice) = decodeChoice encodedChoices choice (var x)
 
       decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
       decodeAndDistribute = fmap floatScalars . distribute . decode
@@ -313,9 +315,9 @@ encodeChoices choices = zipWith (\choice i -> (choice, toPauli choiceCount i)) c
     choiceCount = length choices
 
 decodeChoice :: Eq a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> a -> VarId -> Tensor (Summed ScaledPauli)
-decodeChoice encodedChoices choice var =
+decodeChoice encodedChoices choice x =
   case lookup choice encodedChoices of
-    Just pauliFn -> pauliFn var
+    Just pauliFn -> pauliFn x
     Nothing -> error "decodeChoice"
 
 scale :: Complex Double -> Scaled a -> Scaled a
@@ -349,7 +351,7 @@ toPauli :: Int -> Int -> (VarId -> Tensor (Summed ScaledPauli))
 toPauli totalChoiceCount i
   | i > totalChoiceCount = error "toPauli: i > totalChoiceCount"
   | i >= length allBitStrings = error "toPauli: i >= length allBitStrings"
-  | otherwise = \var -> Tensor $ map ($ var) (allBitStrings !! i)
+  | otherwise = \x -> Tensor $ map ($ x) (allBitStrings !! i)
   where
     pos, neg :: VarId -> Summed ScaledPauli
     pos x = scaleSummed (1/2) (sub (pauliI x) (pauliZ x))

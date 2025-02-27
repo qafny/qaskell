@@ -16,7 +16,7 @@ import Data.Maybe
 
 import Data.List
 
-import Quantum.Program hiding (Var)
+import Quantum.Program hiding (Var, var)
 import Quantum.ExampleData
 import Quantum.DistinctDepthN
 
