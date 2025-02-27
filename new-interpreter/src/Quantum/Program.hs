@@ -124,24 +124,24 @@ minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
-solveClassical :: (Part (t (Var a)), Traversable t, Ord c, Num c, Eq a, Eq b, Eq (t (Var a))) =>
+solveClassical :: forall t a b c. (Part (t (Var a)), Traversable t, Ord c, Num c, Eq a, Eq b, Eq (t (Var a))) =>
    Program t a b c ->
    [t (a, b)]
 solveClassical prog =
   let
-     -- varStruct :: t (Var a)
+     varStruct :: t (Var a)
      varStruct = runFresh (genChoices (struct prog))
 
-     -- tuples :: [t (Var a)]
+     tuples :: [t (Var a)]
      tuples = distinctNTuples (view prog) varStruct
 
-     -- actualTuples :: [t (Var a, b)]
+     actualTuples :: [t (Var a, b)]
      actualTuples = assignChoices (choices prog) tuples
 
-     -- encodedChoices :: [t (Var a, b)]
+     encodedChoices :: [t (Var a, b)]
      encodedChoices = createChoices (choices prog) varStruct
 
-     -- results :: [(a, t (a, b))]
+     results :: [(c, t (a, b))]
      results =
           minimumsFst $
           encodedChoices <&>
