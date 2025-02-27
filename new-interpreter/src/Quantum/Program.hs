@@ -362,8 +362,8 @@ neededBitSize = ceiling . logBase 2 . fromIntegral
 strength :: Functor g => (a, g b) -> g (a, b)
 strength (x, gy) = fmap (\y -> (x, y)) gy
 
-createChoices :: Traversable t =>
-  [b] -> t a -> [t (a, b)]
+createChoices :: (Traversable t, Applicative f) =>
+  f b -> t a -> f (t (a, b))
 createChoices ds struct =
     traverse (\a -> strength (a, ds)) struct
   where
