@@ -126,7 +126,7 @@ minimumsFst xs = filter ((==) minfst . fst) xs
 
 solveClassical :: forall t a b c. (Part (t (Var a)), Traversable t, Ord c, Num c, Eq a, Eq b, Eq (t (Var a))) =>
    Program t a b c ->
-   [t (a, b)]
+   [(c, t (a, b))]
 solveClassical prog =
   let
      varStruct :: t (Var a)
@@ -154,7 +154,7 @@ solveClassical prog =
                     ,fmap (first choice) aChoice)
                     )
                where isSubList xs ys = all (`elem` ys) xs
-  in map snd results
+  in results
 
 
 -- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
