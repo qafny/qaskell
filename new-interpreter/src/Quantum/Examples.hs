@@ -260,7 +260,7 @@ maybeToEnergy (Just _) = 0
 inferType :: MaybeExpr () -> Program MaybeExpr () Type Int
 inferType expr =
   Program
-    { choices = map nAryIntType [0..length expr]
+    { choices = map nAryIntType [0..length expr-1]
     , struct = makeBlankExpr expr
     , view = 2
     , constraints = maybeToEnergy .
