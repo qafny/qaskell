@@ -2,6 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 module Quantum.Examples where
 
@@ -13,7 +14,7 @@ import Data.Coerce
 
 import Data.Maybe
 
-import Data.List (nub)
+import Data.List
 
 import Quantum.Program hiding (Var)
 import Quantum.ExampleData
@@ -85,10 +86,10 @@ data Type = IntType | Type :-> Type
   deriving (Show, Eq)
 
 data Expr f a
-  = Var String a
-  | Num Int a
-  | App (f (Expr f a, Expr f a)) a
-  | Lambda String Type (f (Expr f a)) a
+  = Var String (TypeInCtx a)
+  | Num Int (TypeInCtx a)
+  | App (f (Expr f a, Expr f a)) (TypeInCtx a)
+  | Lambda String Type (f (Expr f a)) (TypeInCtx a)
   deriving (Functor, Foldable, Traversable)
 
 deriving instance (Show a, Show (f (Expr f a)), Show (f (Expr f a, Expr f a))) =>
@@ -108,7 +109,7 @@ mmorphExpr alpha (Lambda x ty body ann) =
 maybeExpr :: Expr Identity a -> Maybe (Expr Maybe a)
 maybeExpr = Just . mmorphExpr (Just . runIdentity)
 
-newtype MaybeExpr a = MaybeExpr (Maybe (Expr Maybe a))
+newtype MaybeExpr a = MaybeExpr { unMaybeExpr :: Maybe (Expr Maybe a) }
   deriving (Functor, Foldable, Traversable)
 
 pattern EmptyM = MaybeExpr Nothing
@@ -116,6 +117,23 @@ pattern VarM x ann = MaybeExpr (Just (Var x ann))
 pattern NumM x ann = MaybeExpr (Just (Num x ann))
 pattern AppM children ann = MaybeExpr (Just (App children ann))
 pattern LambdaM x ty body ann = MaybeExpr (Just (Lambda x ty body ann))
+
+var :: String -> MaybeExpr ()
+var x = VarM x emptyTyInCtx
+
+num :: Int -> MaybeExpr ()
+num x = NumM x emptyTyInCtx
+
+app :: MaybeExpr () -> MaybeExpr () -> MaybeExpr ()
+app a b = MaybeExpr $ do
+  a' <- unMaybeExpr a
+  b' <- unMaybeExpr b
+  unMaybeExpr $ AppM (Just (a', b')) emptyTyInCtx
+
+lambda :: String -> Type -> MaybeExpr () -> MaybeExpr ()
+lambda x ty body = MaybeExpr $ do
+  body' <- unMaybeExpr body
+  unMaybeExpr $ LambdaM x ty (Just body') emptyTyInCtx
 
 instance Part (MaybeExpr a) where
   immediateChildren = coerce (immediateChildren :: (Maybe (Expr Maybe a) -> [Maybe (Expr Maybe a)]))
@@ -170,40 +188,135 @@ instance Part (Maybe (Expr Maybe a)) where
 --   duplicate (App a b x) = App (duplicate a) (duplicate b) (App a b x)
 --   duplicate (Lambda v ty body x) = Lambda v ty (duplicate body) (Lambda v ty body x)
 
-getAnn :: Expr f a -> a
+getAnn :: Expr f a -> TypeInCtx a
 getAnn (Var _ ann) = ann
 getAnn (Num _ ann) = ann
 getAnn (App _ ann) = ann
 getAnn (Lambda _ _ _ ann) = ann
 
+getFreeVars :: Foldable f => Expr f a -> [String]
+getFreeVars = nub . go
+  where
+    go (Var x _) = [x]
+    go (Num {}) = []
+    go (App children _) =
+      foldMap (\(a, b) -> go a ++ go b) children
+    go (Lambda x _ body _) =
+        foldMap (\a -> go a \\ [x]) body
+
+type Ctx a = [(String, a)]
+
+data TypeInCtx a =
+  TypeInCtx
+  { ctx :: Ctx a
+  , ty :: a
+  }
+  deriving (Show, Functor, Foldable, Traversable)
+
+emptyTyInCtx :: TypeInCtx ()
+emptyTyInCtx = TypeInCtx [] ()
+
+makeBlankTypeInCtx :: [String] -> TypeInCtx ()
+makeBlankTypeInCtx fvs =
+  TypeInCtx (map (, ()) fvs) ()
+
+-- | Fill the typing contexts with blanks for the in-scope free variables
+makeBlankExpr :: MaybeExpr () -> MaybeExpr ()
+makeBlankExpr = go []
+  where
+    go :: [String] -> MaybeExpr () -> MaybeExpr ()
+    go ctx = \case
+      VarM x _ -> VarM x (makeBlankTypeInCtx ctx)
+      NumM i _ -> NumM i (makeBlankTypeInCtx ctx)
+
+      AppM children _ ->
+        AppM (go2 ctx children) (makeBlankTypeInCtx ctx)
+
+      LambdaM x ty body _ ->
+        LambdaM x ty (go1 (x:ctx) body) (makeBlankTypeInCtx ctx)
+
+    go1 :: [String] -> Maybe (Expr Maybe ()) -> Maybe (Expr Maybe ())
+    go1 ctx Nothing = Nothing
+    go1 ctx (Just a) =
+      unMaybeExpr $ go ctx (MaybeExpr (Just a))
+
+    go2 :: [String] -> Maybe (Expr Maybe (), Expr Maybe ()) -> Maybe (Expr Maybe (), Expr Maybe ())
+    go2 ctx Nothing = Nothing
+    go2 ctx (Just (a, b)) = do
+      a' <- unMaybeExpr $ go ctx (MaybeExpr (Just a))
+      b' <- unMaybeExpr $ go ctx (MaybeExpr (Just b))
+      pure (a', b')
+
+maybeToEnergy :: Maybe a -> Int
+maybeToEnergy Nothing = 1
+maybeToEnergy (Just _) = 0
+
 inferType :: MaybeExpr () -> Program MaybeExpr () Type (Maybe Type)
 inferType expr =
   Program
     { choices = map nAryIntType [0..length expr]
-    , struct = expr
+    , struct = makeBlankExpr expr
     , view = 2
-    , constraints = \case
-        EmptyM -> Nothing
-        VarM x ((), ty) -> Just ty
+    , constraints =
+        \case
+          EmptyM -> Nothing
+          VarM x tyInCtx -> do
+            ((), aTy) <- lookup x (ctx tyInCtx)
+            guard (aTy == snd (ty tyInCtx))
+            pure aTy
 
-        NumM _ ((), ty) -> do
-          guard (ty == IntType)
-          pure ty
+          NumM _ tyInCtx -> do
+            let ((), aTy) = ty tyInCtx
+            guard (aTy == IntType)
+            pure aTy
 
-        AppM childrenM ((), ty) -> do
-          (a, b) <- childrenM
-          let ((), aTy) = getAnn a
-              ((), bTy) = getAnn b
+          AppM childrenM tyInCtx -> do
+            let ((), overallTy) = ty tyInCtx
 
-          case aTy of
-            srcTy :-> tgtTy -> do
-              guard (srcTy == bTy)
-              guard (tgtTy == ty)
-              pure ty
-            _ -> Nothing
+            (a, b) <- childrenM
+            let aTyInCtx = getAnn a
+                bTyInCtx = getAnn b
 
-        LambdaM x paramTy bodyM ((), ty) -> do
-          undefined
+            -- TODO: Do we need to ensure that all three typing contexts
+            -- are the same here with a guard?
+
+            let ((), aTy) = ty aTyInCtx
+                ((), bTy) = ty bTyInCtx
+
+            case aTy of
+              srcTy :-> tgtTy -> do
+                guard (srcTy == bTy)
+                guard (tgtTy == overallTy)
+                pure overallTy
+              _ -> Nothing
+
+          LambdaM x paramTy bodyM tyInCtx -> do
+            let ((), overallTy) = ty tyInCtx
+
+            body <- bodyM
+
+            let bodyTyInCtx = getAnn body
+
+            ((), xTy) <- lookup x (ctx bodyTyInCtx)
+            guard (xTy == paramTy)
+
+            case overallTy of
+              srcTy :-> tgtTy -> do
+                guard (xTy == srcTy)
+                pure overallTy
+
+              _ -> Nothing
+
+          --   case aTy of
+          --     srcTy :-> tgtTy -> do
+          --       guard (srcTy == bTy)
+          --       guard (tgtTy == ty)
+          --       pure ty
+          --     _ -> Nothing
+
+          -- LambdaM x paramTy bodyM ((), ty) -> do
+          --   undefined
+
         -- case e of
         --   Var str () -> Just ty
         --   Num _ () -> do
