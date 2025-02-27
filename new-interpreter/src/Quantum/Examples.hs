@@ -8,7 +8,7 @@ import Data.List (nub)
 -- ghci> solveProgram (eqSum [1, 2])
 -- ...
 eqSum ::
-  [Int] -> Program [] Int Int
+  [Int] -> Program [] Int Int Int
 eqSum inputList =
   Program
     { choices = [-1, 1]
@@ -23,7 +23,7 @@ eqSum inputList =
 -- ghci> solveProgram (graphColoring 2 graph1)
 -- ...
 graphColoring ::
-  Int -> [(Int, Int)] -> Program [] Int Int
+  Int -> [(Int, Int)] -> Program [] Int Int Int
 graphColoring colorCount edges = 
   Program
     { choices = [0..colorCount-1]
@@ -39,7 +39,7 @@ graphColoring colorCount edges =
       else 0
 
 cliqueFinding ::
-  Int -> AdjList Int -> Program [] Int Int
+  Int -> AdjList Int -> Program [] Int Int Int
 cliqueFinding cliqueSize edges =
   Program
     { choices = [0, 1]
@@ -53,7 +53,7 @@ cliqueFinding cliqueSize edges =
 
 data Cover a = MkCover { vars :: [a], valuation :: [a] -> Bool }
 
-exactCover :: Cover Int -> Program [] Int Int
+exactCover :: Cover Int -> Program [] Int Int Int
 exactCover cover =
   Program
     { choices = [0, 1],
@@ -65,6 +65,29 @@ exactCover cover =
           then 0
           else 1
     }
+
+infixr :->
+data Type = IntType | Type :-> Type
+  deriving (Show, Eq)
+
+data Expr a
+  = Var String a
+  | Num Int a
+  | App (Expr a) (Expr a) a
+  | Lambda String Type (Expr a) a
+  deriving (Show)
+
+-- inferType :: Expr () -> Program Expr () Type Int
+-- inferType expr =
+--   Program
+--     { choices = map nAryIntType [0..4]
+--     , struct = expr
+--     , view = 3
+--     , constraints = \c -> _
+--     }
+--   where
+--     nAryIntType 0 = IntType
+--     nAryIntType n = IntType :-> nAryIntType (n-1)
 
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]

@@ -84,12 +84,12 @@ getVarPayload (Var x _) = x
 getVarId :: Var a -> VarId
 getVarId (Var _ i) = i
 
-data Program t a b =
+data Program t a b c =
   Program
     { choices :: [b]
     , struct :: t a
     , view :: Int
-    , constraints :: [(a, b)] -> a
+    , constraints :: [(a, b)] -> c
     }
 
 generateVars :: Traversable t =>
@@ -97,7 +97,7 @@ generateVars :: Traversable t =>
 generateVars = traverse (\x -> Var x <$> fresh)
 
 solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
-  Program [] a b ->
+  Program [] a b a ->
   a
 solveProgramClassical prog =
   let
@@ -126,8 +126,8 @@ solveProgramClassical prog =
   where
     isSubListOf xs ys = all (`elem` ys) xs
 
-solveProgram :: forall t a b. (Eq a, Eq b, Real a, Traversable t) =>
-  Program t a b ->
+solveProgram :: forall t a b c. (Eq a, Eq b, Real c, Traversable t) =>
+  Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
 solveProgram prog =
   let
@@ -145,7 +145,7 @@ solveProgram prog =
       encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
       encodedChoices = encodeChoices (choices prog)
 
-      results :: [(a, [(Var a, b)])]
+      results :: [(c, [(Var a, b)])]
       results = map (\x -> (constraints prog (map (first getVarPayload) x), x))
                     actualPairs
 
@@ -155,10 +155,10 @@ solveProgram prog =
       decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
       decodeAndDistribute = fmap floatScalars . distribute . decode
 
-      results2 :: [(a, Tensor (Summed (Scaled (Tensor PauliExpr))))]
+      results2 :: [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
       results2 = map (second Tensor) $ map (\(x, varChoices) -> (x, map decodeAndDistribute varChoices)) results
 
-      results3 :: [(a, Summed (Scaled (Tensor PauliExpr)))]
+      results3 :: [(c, Summed (Scaled (Tensor PauliExpr)))]
       results3 = map (second (fmap commuteScaledTensor . distribute)) results2
 
       results4 :: [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
@@ -172,7 +172,7 @@ solveProgram prog =
   in
   eliminateZeroes $ collectLikes results6
   where
-    toComplex :: a -> Complex Double
+    toComplex :: c -> Complex Double
     toComplex = fromRational . toRational
 
 eliminateZeroes :: Summed (Scaled a) -> Summed (Scaled a)
