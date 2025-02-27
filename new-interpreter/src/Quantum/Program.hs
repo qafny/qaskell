@@ -96,9 +96,9 @@ data Program t a b c =
     , constraints :: t (a, b) -> c
     }
 
-generateVars :: Traversable t =>
+genChoices :: Traversable t =>
   t a -> Fresh (t (Var a))
-generateVars = traverse (\x -> Var x <$> fresh)
+genChoices = traverse (\x -> Var x <$> fresh)
 
 solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
   Program [] a b a ->
@@ -106,7 +106,7 @@ solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
 solveProgramClassical prog =
   let
       varStruct :: [Var a]
-      varStruct = runFresh (generateVars (struct prog))
+      varStruct = runFresh (genChoices (struct prog))
 
       pairs :: [[Var a]]
       pairs = distinctDepthN (view prog)
@@ -119,8 +119,8 @@ solveProgramClassical prog =
       pairHits = filter isHit pairs
 
       actualPairs :: [[(Var a, b)]]
-      actualPairs = makeActualChoice (choices prog)
-                                     pairHits
+      actualPairs = assignChoices (choices prog)
+                                  pairHits
 
       results :: [a]
       results = map (\x -> (constraints prog (map (first getVarPayload) x)))
@@ -136,14 +136,14 @@ solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq 
 solveProgram prog =
   let
       varStruct :: t (Var a)
-      varStruct = runFresh (generateVars (struct prog))
+      varStruct = runFresh (genChoices (struct prog))
 
       pairs :: [t (Var a)]
       pairs = distinctDepthN (view prog)
                              varStruct
       actualPairs :: [t (Var a, b)]
-      actualPairs = makeActualChoice (choices prog)
-                                     pairs
+      actualPairs = assignChoices (choices prog)
+                                  pairs
 
       encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
       encodedChoices = encodeChoices (choices prog)
@@ -277,8 +277,8 @@ toPauli totalChoiceCount i
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
 
-makeActualChoice :: Traversable t => [b] -> [t a] -> [t (a, b)]
-makeActualChoice choices xss = do
+assignChoices :: Traversable t => [b] -> [t a] -> [t (a, b)]
+assignChoices choices xss = do
   xs <- xss
   ys <- replicateM (length xs) choices
   pure (fillTraversablePairs ys xs)
