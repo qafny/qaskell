@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 {-# OPTIONS_GHC -Woverlapping-patterns -Wincomplete-patterns #-}
 
@@ -100,40 +101,121 @@ genChoices :: Traversable t =>
   t a -> Fresh (t (Var a))
 genChoices = traverse (\x -> Var x <$> fresh)
 
-solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
-  Program [] a b a ->
+newtype Classical a = Classical a
+newtype Quantum a = Quantum a
+
+class Solve r where
+  solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+    Program t a b c ->
+    r
+
+-- instance Solve 
+
+instance Solve (Summed (Scaled (Tensor PauliExpr))) where
+  solveProgram = solveProgramQuantum
+
+-- createChoices :: Traversable t => [b] -> t a -> [(t (Var (a, b)))]
+-- createChoices ds = traverse (\a -> msum (map (go a) ds))
+--   where
+--     go (Var a x) b = return (Var (a, b) x)
+    
+minimumsFst :: Ord a => [(a, b)] -> [(a, b)]
+minimumsFst [] = []
+minimumsFst xs = filter ((==) minfst . fst) xs
+    where minfst = minimum (map fst xs)
+
+solveClassical :: forall t a b. (Eq a, Eq b, Eq (t (Var a)), Part (t (Var a)), Ord a, Real a, Traversable t) =>
+  Program t a b a ->
   a
-solveProgramClassical prog =
-  let
-      varStruct :: [Var a]
-      varStruct = runFresh (genChoices (struct prog))
+solveClassical prog =
+ let
+     varStruct :: t (Var a)
+     varStruct = runFresh (genChoices (struct prog))
 
-      pairs :: [[Var a]]
-      pairs = distinctNTuples (view prog)
-                              (varStruct)
+     tuples :: [t (Var a)]
+     tuples = distinctNTuples (view prog) varStruct
 
-      isHit :: [Var a] -> Bool
-      isHit = (`isSubListOf` struct prog) . map getVarPayload
+     actualTuples :: [t (Var a, b)]
+     actualTuples = assignChoices (choices prog) tuples
+  in undefined
 
-      pairHits :: [[Var a]]
-      pairHits = filter isHit pairs
+     -- encodedChoices :: [(t (Var (a, b)))]
+     -- encodedChoices = createChoices (choices prog) (struct prog)
 
-      actualPairs :: [[(Var a, b)]]
-      actualPairs = assignChoices (choices prog)
-                                  pairHits
+     -- results :: [t (a, b)]
+     -- results = minimumsFst $ encodedChoices <&>
+     --              (\ aChoice -> sum $ actualTuples <&>
+     --                 (\ aTuple -> if isSubList aTuple (toList aChoice)
+     --                              then (constraints prog (map choice aTuple))
+     --                              else 0) , fmap choice aChoice)
+     --           where isSubList xs ys = all (`elem` ys) xs
+ -- in undefined --results
 
-      results :: [a]
-      results = map (\x -> (constraints prog (map (first getVarPayload) x)))
-                    actualPairs
-  in
-  minimum results
-  where
-    isSubListOf xs ys = all (`elem` ys) xs
 
-solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+-- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
+--   Program [] a b a ->
+--   a
+-- solveProgramClassical prog =
+--   let
+--       varStruct :: [Var a]
+--       varStruct = runFresh (genChoices (struct prog))
+
+--       pairs :: [[Var a]]
+--       pairs = distinctNTuples (view prog)
+--                               (varStruct)
+
+--       isHit :: [Var a] -> Bool
+--       isHit = (`isSubListOf` struct prog) . map getVarPayload
+
+--       pairHits :: [[Var a]]
+--       pairHits = filter isHit pairs
+
+--       actualPairs :: [[(Var a, b)]]
+--       actualPairs = assignChoices (choices prog)
+--                                   pairHits
+
+--       results :: [a]
+--       results = map (\x -> (constraints prog (map (first getVarPayload) x)))
+--                     actualPairs
+--   in
+--   minimum results
+--   where
+--     isSubListOf xs ys = all (`elem` ys) xs
+
+-- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
+--   Program [] a b a ->
+--   a
+-- solveProgramClassical prog =
+--   let
+--       varStruct :: [Var a]
+--       varStruct = runFresh (genChoices (struct prog))
+
+--       pairs :: [[Var a]]
+--       pairs = distinctNTuples (view prog)
+--                               (varStruct)
+
+--       isHit :: [Var a] -> Bool
+--       isHit = (`isSubListOf` struct prog) . map getVarPayload
+
+--       pairHits :: [[Var a]]
+--       pairHits = filter isHit pairs
+
+--       actualPairs :: [[(Var a, b)]]
+--       actualPairs = assignChoices (choices prog)
+--                                   pairHits
+
+--       results :: [a]
+--       results = map (\x -> (constraints prog (map (first getVarPayload) x)))
+--                     actualPairs
+--   in
+--   minimum results
+--   where
+--     isSubListOf xs ys = all (`elem` ys) xs
+
+solveProgramQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
-solveProgram prog =
+solveProgramQuantum prog =
   let
       varStruct :: t (Var a)
       varStruct = runFresh (genChoices (struct prog))
@@ -276,6 +358,16 @@ toPauli totalChoiceCount i
 
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
+
+strength :: Functor g => (a, g b) -> g (a, b)
+strength (x, gy) = fmap (\y -> (x, y)) gy
+
+createChoices :: Traversable t =>
+  [b] -> t a -> [t (a, b)]
+createChoices ds struct =
+    traverse (\a -> strength (a, ds)) struct
+  where
+    go a d = return (a, d)
 
 assignChoices :: Traversable t => [b] -> [t a] -> [t (a, b)]
 assignChoices choices xss = do
