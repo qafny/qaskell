@@ -22,6 +22,9 @@ data Program t a b c =
 exampleTupleFn :: DepPair NatS (TupleFn (Bool, Bool) Int)
 exampleTupleFn =
   DepPair
-    NS2
-    (TupleFn (\((x1, y1) :> (x2, y2) :> Nil) -> if (x1 && y1) || (x2 && y2) then 1 else 0))
+    NS2 $
+    TupleFn (\((x1, y1) :> (x2, y2) :> Nil) ->
+      if (x1 && y1) || (x2 && y2)
+      then 1
+      else 0)
 
