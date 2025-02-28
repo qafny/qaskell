@@ -244,7 +244,7 @@ solve prog =
 
 solveQ :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
-  [(c, t (Tensor (Summed ScaledPauli)))]
+  Summed (Scaled (Tensor PauliExpr))
 solveQ prog =
    let
       varStruct :: t (Var a)
@@ -267,70 +267,119 @@ solveQ prog =
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
       decode (x, c) = decodeChoice encodedChoices c (var x)
       
-      optimize :: Summed ScaledPauli -> Summed ScaledPauli
+      optimize :: forall x. Eq x => Summed (Scaled x) -> Summed (Scaled x)
       optimize = clean . combine 
 
-      compiled :: [(c, t (Tensor (Summed ScaledPauli)))]
+      constraintResults :: [(c, t (Var a, b))]
+      constraintResults =
+        map (\x -> (constraints prog (fmap (first choice) x), x))
+            actualTuples
+
+      combineSums ::
+        [Summed (Scaled (Tensor PauliExpr))] ->
+        Summed (Scaled (Tensor PauliExpr))
+      combineSums = joinSummed . Summed
+
+      applyScaling ::
+        [(Complex Double, Summed (Scaled (Tensor PauliExpr)))] ->
+        [Summed (Scaled (Tensor PauliExpr))]
+      applyScaling = map (\(k, x) -> fmap (scale k) x)
+
+      coeffsToComplex ::
+        [(c, Summed (Scaled (Tensor PauliExpr)))] ->
+        [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
+      coeffsToComplex = map (first toComplex)
+
+      commuteTensorScaling ::
+        [(c, Summed (Tensor (Scaled (Tensor PauliExpr))))] ->
+        [(c, Summed (Scaled (Tensor PauliExpr)))]
+      commuteTensorScaling = map (second (fmap commuteScaledTensor))
+
+      buildTensor ::
+        [(c, t (Summed (Scaled (Tensor PauliExpr))))] ->
+        [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
+      buildTensor = map (second (Tensor . toList))
+
+      decodeAndDistribute ::
+        [(c, t (Var a, b))] ->
+        [(c, t (Summed (Scaled (Tensor PauliExpr))))]
+      decodeAndDistribute = 
+        fmap (\(x, varChoices) ->
+                (x, fmap (fmap floatScalars . distr . decode) varChoices))
+      
+      distributeSummedTensor ::
+        [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))] ->
+        [(c, Summed (Tensor (Scaled (Tensor PauliExpr))))]
+      distributeSummedTensor = map (second distr)
+
+      compiled :: Summed (Scaled (Tensor PauliExpr))
       compiled =
-        map (second (fmap (fmap optimize))) $
-          fmap (\(x, cs) -> (x, fmap (fmap (scaleSummed (toComplex x)) . decode) cs))
-                    conditions
-   in compiled
+        optimize $
+        combineSums $
+        applyScaling $
+        coeffsToComplex $
+        commuteTensorScaling $
+        distributeSummedTensor $
+        buildTensor $
+        decodeAndDistribute $
+        constraintResults
+   in
+   compiled
    where
     toComplex :: c -> Complex Double
     toComplex = fromRational . toRational
 
--- solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
---   Program t a b c ->
---   Summed (Scaled (Tensor PauliExpr))
--- solveQuantum prog =
---   let
---       varStruct :: t (Var a)
---       varStruct = runFresh (genChoices (struct prog))
+solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+  Program t a b c ->
+  Summed (Scaled (Tensor PauliExpr))
+solveQuantum prog =
+  let
+      varStruct :: t (Var a)
+      varStruct = runFresh (genChoices (struct prog))
 
---       pairs :: [t (Var a)]
---       pairs = distinctNTuples (view prog)
---                               varStruct
---       actualPairs :: [t (Var a, b)]
---       actualPairs = assignChoices (choices prog)
---                                   pairs
+      pairs :: [t (Var a)]
+      pairs = distinctNTuples (view prog)
+                              varStruct
+      actualPairs :: [t (Var a, b)]
+      actualPairs = assignChoices (choices prog)
+                                  pairs
 
---       encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
---       encodedChoices = encodeChoices (choices prog)
+      encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
+      encodedChoices = encodeChoices (choices prog)
 
---       results :: [(c, t (Var a, b))]
---       results = map (\x -> (constraints prog (fmap (first choice) x), x))
---                     actualPairs
+      results :: [(c, t (Var a, b))]
+      results = map (\x -> (constraints prog (fmap (first choice) x), x))
+                    actualPairs
 
---       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
---       decode (x, choice) = decodeChoice encodedChoices choice (var x)
+      decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
+      decode (x, choice) = decodeChoice encodedChoices choice (var x)
 
---       decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
---       decodeAndDistribute = fmap floatScalars . distr . decode
+      decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
+      decodeAndDistribute = fmap floatScalars . distr . decode
 
---       results2 :: [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
---       results2 =
---         map (second (Tensor . toList)) $ -- TODO: Does toList just make this work?
---         fmap (\(x, varChoices) ->
---                 (x, fmap decodeAndDistribute varChoices))
---              results
+      results2 :: [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
+      results2 =
+        map (second (Tensor . toList)) $ -- TODO: Does toList just make this work?
+        fmap (\(x, varChoices) ->
+                (x, fmap decodeAndDistribute varChoices))
+             results
 
---       results3 :: [(c, Summed (Scaled (Tensor PauliExpr)))]
---       results3 = map (second (fmap commuteScaledTensor . distr)) results2
+      results3 :: [(c, Summed (Scaled (Tensor PauliExpr)))]
+      results3 = map (second (fmap commuteScaledTensor . distr)) results2
 
---       results4 :: [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
---       results4 = map (first toComplex) results3
+      results4 :: [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
+      results4 = map (first toComplex) results3
 
---       results5 :: [Summed (Scaled (Tensor PauliExpr))]
---       results5 = map (\(k, x) -> fmap (scale k) x) results4
+      results5 :: [Summed (Scaled (Tensor PauliExpr))]
+      results5 = map (\(k, x) -> fmap (scale k) x) results4
 
---       results6 :: Summed (Scaled (Tensor PauliExpr))
---       results6 = joinSummed $ Summed results5
---   in
---   clean $ combine results6
---   where
---     toComplex :: c -> Complex Double
---     toComplex = fromRational . toRational
+      results6 :: Summed (Scaled (Tensor PauliExpr))
+      results6 = joinSummed $ Summed results5
+  in
+  clean $ combine results6
+  where
+    toComplex :: c -> Complex Double
+    toComplex = fromRational . toRational
 
 clean :: Summed (Scaled a) -> Summed (Scaled a)
 clean (Summed xs) = Summed $ filter nonZero xs
