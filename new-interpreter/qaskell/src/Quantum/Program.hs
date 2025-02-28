@@ -103,24 +103,6 @@ genChoices :: Traversable t =>
   t a -> Fresh (t (Var a))
 genChoices = traverse (\x -> Var x <$> fresh)
 
--- newtype Classical a = Classical a
--- newtype Quantum a = Quantum a
-
--- class Solve r where
---   solveProgram :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
---     Program t a b c ->
---     r
-
--- instance Solve 
-
--- instance Solve (Summed (Scaled (Tensor PauliExpr))) where
---   solveProgram = solveProgramQuantum
-
--- createChoices :: Traversable t => [b] -> t a -> [(t (Var (a, b)))]
--- createChoices ds = traverse (\a -> msum (map (go a) ds))
---   where
---     go (Var a x) b = return (Var (a, b) x)
-    
 minimumsFst :: Ord a => [(a, b)] -> [(a, b)]
 minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
