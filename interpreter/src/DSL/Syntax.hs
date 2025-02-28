@@ -192,7 +192,7 @@ eqSumExample2 inputList = do
     go [(choiceX, x), (choiceY, y)] =
       (fromIntegral choiceX * x) + (fromIntegral choiceY * y)
 
-runClassical :: forall b c. Super c (Expr c) -> [c]
+runClassical :: forall b c. (Eq c, Num c, GetBit c) => Super c (Expr c) -> [c]
 runClassical act = do
   let (choices, expr) = runSuper act
       freeVars = getFreeVars expr
@@ -338,11 +338,11 @@ data Expr a where
   -- Var :: [a] -> VarId -> Expr a
   Var :: VarId -> Expr a
   Lit :: a -> Expr a
-  Add :: Expr Int -> Expr Int -> Expr Int
-  Sub :: Expr Int -> Expr Int -> Expr Int
-  Mul :: Expr Int -> Expr Int -> Expr Int
+  Add :: Expr a -> Expr a -> Expr a
+  Sub :: Expr a -> Expr a -> Expr a
+  Mul :: Expr a -> Expr a -> Expr a
 
-  GetBit :: Expr Int -> Int -> Expr Int
+  GetBit :: Expr a -> Int -> Expr a
 
   -- SumList :: [Expr Integer] -> Expr Integer
   -- Intersect :: Expr [a] -> Expr [a] -> Expr [a]
@@ -438,7 +438,7 @@ pauliZ =
   , 0, -1
   ]
 
-eval :: Subst a -> Expr a -> a
+eval :: (Eq a, Num a, GetBit a) => Subst a -> Expr a -> a
 eval sbst = go . substs sbst
   where
     go (Var v) = error $ "eval: Expression has free variable not contained in substitution/environment: " ++ show v
@@ -489,7 +489,7 @@ instance GetBit Int where
 instance GetBit (Expr Int) where
   getBit = GetBit
 
-instance Num (Expr Int) where
+instance (Eq a, Num a) => Num (Expr a) where
   Lit 0 + y = y
   x + Lit 0 = x
   x + y = Add x y
