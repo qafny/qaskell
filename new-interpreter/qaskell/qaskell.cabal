@@ -35,10 +35,10 @@ license:            BSD-2-Clause
 license-file:       LICENSE
 
 -- The package author(s).
-author:             David Young
+author:             Anonymous
 
--- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         roboguy06@gmail.com
+-- -- An email address to which users can send suggestions, bug reports, and patches.
+-- maintainer:         anon
 
 -- A copyright notice.
 -- copyright:

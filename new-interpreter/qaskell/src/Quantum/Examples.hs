@@ -116,7 +116,7 @@ maybeExpr :: Expr Identity a -> Maybe (Expr Maybe a)
 maybeExpr = Just . mmorphExpr (Just . runIdentity)
 
 newtype MaybeExpr a = MaybeExpr { unMaybeExpr :: Maybe (Expr Maybe a) }
-  deriving (Functor, Foldable, Traversable, Eq)
+  deriving (Show, Functor, Foldable, Traversable, Eq)
 
 pattern EmptyM = MaybeExpr Nothing
 pattern VarM x ann = MaybeExpr (Just (Var x ann))
@@ -175,27 +175,6 @@ instance Part (Maybe (Expr Maybe a)) where
            ty
            (join $ (truncateHere (n-1)) $ body)
            ann
-
-
--- exprDepth :: Expr a -> Int
--- exprDepth Var{} = 1
--- exprDepth Num{} = 1
--- exprDepth (App x y _) = 1 + max (exprDepth x) (exprDepth y)
--- exprDepth (Lambda _ _ x _) = 1 + exprDepth x
-
--- -- instance DistinctTuples Expr where
--- --   distinctNTuples n = undefined
-
--- instance Comonad Expr where
---   extract (Var _ x) = x
---   extract (Num _ x) = x
---   extract (App _ _ x) = x
---   extract (Lambda _ _ _ x) = x
-
---   duplicate (Var v x) = Var v (Var v x)
---   duplicate (Num n x) = Num n (Num n x)
---   duplicate (App a b x) = App (duplicate a) (duplicate b) (App a b x)
---   duplicate (Lambda v ty body x) = Lambda v ty (duplicate body) (Lambda v ty body x)
 
 getAnn :: Expr f a -> TypeInCtx a
 getAnn (Var _ ann) = ann
@@ -305,6 +284,7 @@ inferType expr =
             body <- bodyM
 
             let bodyTyInCtx = getAnn body
+                ((), bodyTy) = ty bodyTyInCtx
 
             ((), xTy) <- lookup x (ctx bodyTyInCtx)
             guard (xTy == paramTy)
@@ -312,28 +292,11 @@ inferType expr =
             case overallTy of
               srcTy :-> tgtTy -> do
                 guard (xTy == srcTy)
+                guard (tgtTy == bodyTy)
                 pure overallTy
 
               _ -> Nothing
 
-          --   case aTy of
-          --     srcTy :-> tgtTy -> do
-          --       guard (srcTy == bTy)
-          --       guard (tgtTy == ty)
-          --       pure ty
-          --     _ -> Nothing
-
-          -- LambdaM x paramTy bodyM ((), ty) -> do
-          --   undefined
-
-        -- case e of
-        --   Var str () -> Just ty
-        --   Num _ () -> do
-        --     guard (ty == IntType)
-        --     Just ty
-        --   App _ _ () -> Just ty
-        --   Lambda x (FnType {}) body () -> Just ty
-        --   Lambda {} -> Nothing
     }
   where
     nAryIntType 0 = IntType
