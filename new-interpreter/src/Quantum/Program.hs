@@ -273,9 +273,12 @@ solveQ prog =
       compiled :: [(c, t (Tensor (Summed ScaledPauli)))]
       compiled =
         map (second (fmap (fmap optimize))) $
-          fmap (\(x, cs) -> (x, fmap decode cs))
+          fmap (\(x, cs) -> (x, fmap (fmap (scaleSummed (toComplex x)) . decode) cs))
                     conditions
    in compiled
+   where
+    toComplex :: c -> Complex Double
+    toComplex = fromRational . toRational
 
 -- solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
 --   Program t a b c ->
