@@ -20,7 +20,7 @@ import Quantum.Program hiding (Var, var)
 import Quantum.ExampleData
 import Quantum.DistinctDepthN
 
--- ghci> solveProgram (eqSum [1, 2])
+-- ghci> solveQuantum (eqSum [1, 2])
 -- ...
 eqSum ::
   [Int] -> Program [] Int Int Int
@@ -35,7 +35,7 @@ eqSum inputList =
         (b * choiceB)
     }
 
--- ghci> solveProgram (graphColoring 2 graph1)
+-- ghci> solveQuantum (graphColoring 2 graph1)
 -- ...
 graphColoring ::
   Int -> [(Int, Int)] -> Program [] Int Int Int

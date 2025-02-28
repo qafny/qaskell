@@ -124,21 +124,19 @@ minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
-solve prog =
+solveClassical :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+  Program t a b c ->
+  [(c, t (a, b))]
+solveClassical prog =
   let
-     -- varStruct :: t (Var a)
      varStruct = runFresh (genChoices (struct prog))
 
-     -- tuples :: [t (Var a)]
      tuples = distinctNTuples (view prog) varStruct
 
-     -- actualTuples :: [t (Var a, b)]
      actualTuples = assignChoices (choices prog) tuples
 
-     -- encodedChoices :: [t (Var a, b)]
      encodedChoices = createChoices (choices prog) varStruct
 
-     -- results :: [(c, t (a, b))]
      results =
           minimumsFst $ encodedChoices <&>
                   (\ aChoice -> (sum $ actualTuples <&>
@@ -149,103 +147,10 @@ solve prog =
                where isSubList xs ys = all (`elem` ys) xs
   in results
 
--- solveClassical :: forall t a b c. (Part (t (Var a)), Traversable t, Ord c, Num c, Eq a, Eq b, Eq (t (Var a))) =>
---    Program t a b c ->
---    [(c, t (a, b))]
--- solveClassical prog =
---   let
---      varStruct :: t (Var a)
---      varStruct = runFresh (genChoices (struct prog))
-
---      tuples :: [t (Var a)]
---      tuples = distinctNTuples (view prog) varStruct
-
---      actualTuples :: [t (Var a, b)]
---      actualTuples = assignChoices (choices prog) tuples
-
---      encodedChoices :: [t (Var a, b)]
---      encodedChoices = createChoices (choices prog) varStruct
-
---      results :: [(c, t (a, b))]
---      results =
---           minimumsFst $
---           encodedChoices <&>
---                   (\ aChoice ->
---                     (sum $ actualTuples <&>
---                                  (\ aTuple -> if isSubList aTuple (toList aChoice)
---                                               then (constraints prog (fmap (first choice) aTuple))
---                                               else 0
---                                               )
---                     ,fmap (first choice) aChoice)
---                     )
---                where isSubList xs ys = all (`elem` ys) xs
---   in results
-
-
--- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
---   Program [] a b a ->
---   a
--- solveProgramClassical prog =
---   let
---       varStruct :: [Var a]
---       varStruct = runFresh (genChoices (struct prog))
-
---       pairs :: [[Var a]]
---       pairs = distinctNTuples (view prog)
---                               (varStruct)
-
---       isHit :: [Var a] -> Bool
---       isHit = (`isSubListOf` struct prog) . map choice
-
---       pairHits :: [[Var a]]
---       pairHits = filter isHit pairs
-
---       actualPairs :: [[(Var a, b)]]
---       actualPairs = assignChoices (choices prog)
---                                   pairHits
-
---       results :: [a]
---       results = map (\x -> (constraints prog (map (first choice) x)))
---                     actualPairs
---   in
---   minimum results
---   where
---     isSubListOf xs ys = all (`elem` ys) xs
-
--- solveProgramClassical :: forall a b. (Eq a, Eq b, Ord a, Real a) =>
---   Program [] a b a ->
---   a
--- solveProgramClassical prog =
---   let
---       varStruct :: [Var a]
---       varStruct = runFresh (genChoices (struct prog))
-
---       pairs :: [[Var a]]
---       pairs = distinctNTuples (view prog)
---                               (varStruct)
-
---       isHit :: [Var a] -> Bool
---       isHit = (`isSubListOf` struct prog) . map choice
-
---       pairHits :: [[Var a]]
---       pairHits = filter isHit pairs
-
---       actualPairs :: [[(Var a, b)]]
---       actualPairs = assignChoices (choices prog)
---                                   pairHits
-
---       results :: [a]
---       results = map (\x -> (constraints prog (map (first choice) x)))
---                     actualPairs
---   in
---   minimum results
---   where
---     isSubListOf xs ys = all (`elem` ys) xs
-
-solveQ :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
-solveQ prog =
+solveQuantum prog =
    let
       varStruct :: t (Var a)
       varStruct = runFresh (genChoices (struct prog))
@@ -258,10 +163,8 @@ solveQ prog =
       actualTuples = assignChoices (choices prog)
                                   pairs
 
-      -- encodedChoices :: [(b, VarId) -> [(Complex Double, [PauliExpr])]]
       encodedChoices = encodeChoices (choices prog)
 
-      -- conditions :: [(Integer, [Var (a, b)])]
       conditions = map (\x -> (constraints prog (fmap (first choice) x), x)) actualTuples
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
@@ -326,58 +229,6 @@ solveQ prog =
    in
    compiled
    where
-    toComplex :: c -> Complex Double
-    toComplex = fromRational . toRational
-
-solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
-  Program t a b c ->
-  Summed (Scaled (Tensor PauliExpr))
-solveQuantum prog =
-  let
-      varStruct :: t (Var a)
-      varStruct = runFresh (genChoices (struct prog))
-
-      pairs :: [t (Var a)]
-      pairs = distinctNTuples (view prog)
-                              varStruct
-      actualPairs :: [t (Var a, b)]
-      actualPairs = assignChoices (choices prog)
-                                  pairs
-
-      encodedChoices :: [(b, VarId -> Tensor (Summed ScaledPauli))]
-      encodedChoices = encodeChoices (choices prog)
-
-      results :: [(c, t (Var a, b))]
-      results = map (\x -> (constraints prog (fmap (first choice) x), x))
-                    actualPairs
-
-      decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
-      decode (x, choice) = decodeChoice encodedChoices choice (var x)
-
-      decodeAndDistribute :: (Var a, b) -> Summed (Scaled (Tensor PauliExpr))
-      decodeAndDistribute = fmap floatScalars . distr . decode
-
-      results2 :: [(c, Tensor (Summed (Scaled (Tensor PauliExpr))))]
-      results2 =
-        map (second (Tensor . toList)) $ -- TODO: Does toList just make this work?
-        fmap (\(x, varChoices) ->
-                (x, fmap decodeAndDistribute varChoices))
-             results
-
-      results3 :: [(c, Summed (Scaled (Tensor PauliExpr)))]
-      results3 = map (second (fmap commuteScaledTensor . distr)) results2
-
-      results4 :: [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
-      results4 = map (first toComplex) results3
-
-      results5 :: [Summed (Scaled (Tensor PauliExpr))]
-      results5 = map (\(k, x) -> fmap (scale k) x) results4
-
-      results6 :: Summed (Scaled (Tensor PauliExpr))
-      results6 = joinSummed $ Summed results5
-  in
-  clean $ combine results6
-  where
     toComplex :: c -> Complex Double
     toComplex = fromRational . toRational
 
@@ -498,10 +349,6 @@ fillTraversablePairs xs t = evalState (traverse makeStatePair t) xs
     makeStatePair b = state $ \case
       [] -> error "Not enough elements in the list"
       (a:as) -> ((b, a), as)
-
--- -- instance DistinctTuples [] where
--- distinctNTuples n xs =
---   filter ((== n) . length) $ filterM (const [False, True]) xs
 
 newtype Fresh a = Fresh (State VarId a)
   deriving (Functor, Applicative, Monad)
