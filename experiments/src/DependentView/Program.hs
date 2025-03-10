@@ -18,12 +18,12 @@ data Program t a b c =
     , struct :: t a
 
         -- This is like:
-        --   constraints :: exists (x :: Nat). ((a, b) -> c)
+        --   constraints :: exists (n :: Nat). (Vect n (a, b) -> c)
     , constraints :: DepPair NatS (TupleFn (a, b) c)
     }
 
 -- This is like
---   exampleTupleFn :: exists (x :: Nat). ((Bool, Bool) -> Int)
+--   exampleTupleFn :: exists (n :: Nat). (Vect n (Bool, Bool) -> Int)
 exampleTupleFn :: DepPair NatS (TupleFn (Bool, Bool) Int)
 exampleTupleFn =
   DepPair
