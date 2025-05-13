@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 
+-- One specific example; general pattern abstracted in Optimization.hs 
+
 module MC where
 
 import Control.Comonad
