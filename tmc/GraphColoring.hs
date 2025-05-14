@@ -1,46 +1,17 @@
-module MC where
+module GraphColoring where
 
-import Control.Comonad
+import Control.Comonad (Comonad(..))
 import Control.Monad (MonadPlus(..))
 import Data.Foldable (for_)
-import Data.Map.Strict (Map, fromList, (!), mapWithKey, toList)
+import Data.Map.Strict (Map, (!), mapWithKey, fromList, toList)
 import Data.List (minimumBy)
 import Data.Ord (comparing)
 import Text.Printf (printf)
 import Control.Applicative ((<|>))
 
-------------------------------------------------------------------------------
-------------------------------------------------------------------------------
--- Generic parts
-
-data OptimizationProblem s choice = OptimizationProblem
-  { shape      :: s ()                                
-  , choose     :: forall m. MonadPlus m => m choice   
-  }
-
-generateProblem :: (Traversable s, MonadPlus m) => 
-  OptimizationProblem s choice -> m (s choice)
-generateProblem (OptimizationProblem sh ch) = traverse (const ch) sh
-
-data EnergySpace s w choice = EnergySpace
-  { embed       :: s choice -> w choice
-  , localE      :: w choice -> Double
-  , combineE    :: Double -> Double -> Double
-  , finalizeE   :: Double -> Double
-  }
-
-generateSolutions :: (MonadPlus m, Comonad w, Foldable w)
-  => m (s choice) -> EnergySpace s w choice -> m (s choice, Double)
-generateSolutions choices (EnergySpace embed local combine finalize) = do
-  cfg <- choices
-  let w = embed cfg
-      scores = extend local w
-      total = finalize (foldr combine 0.0 scores)
-  return (cfg, total)
+import GenericSolver
 
 ------------------------------------------------------------------------------
-------------------------------------------------------------------------------
--- Graph coloring specific parts
 
 data Graph a = Graph 
   { nodeValues :: Map Int a
@@ -167,12 +138,12 @@ printColoring g0 =
 
 runGraphColoring :: Graph () -> IO ()
 runGraphColoring g = do
-  let candidates = generateProblem (graphProblem g) :: [Graph Color]
-      solutions  = generateSolutions candidates energySpace
-  let best = minimumBy (comparing snd) solutions
-  putStrLn $ "Minimum energy: " ++ show (snd best)
-  printColoring (fst best)
-
+  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace exhaustiveSearch
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace firstSolution
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace (thresholdSearch 22.0)
+  putStrLn $ "Minimum energy: " ++ show bestEnergy
+  printColoring bestCfg
+  
 -- === Main ===
 
 main :: Graph () -> IO ()
