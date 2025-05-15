@@ -11,7 +11,7 @@ import Control.Applicative ((<|>))
 
 import GenericSolver
 
-------------------------------------------------------------------------------
+-- === Graphs and colors ===
 
 data Graph a = Graph 
   { nodeValues :: Map Int a
@@ -27,14 +27,53 @@ instance Foldable Graph where
 instance Traversable Graph where
     traverse f g = (\vals' -> g { nodeValues = vals' }) <$> traverse f (nodeValues g)
 
-getNeighborsOf :: Int -> Graph a -> [(Int, a)]
-getNeighborsOf nodeId g = 
-    let vals = nodeValues g
-        nbrs = neighbors g ! nodeId
-    in zip nbrs (map (vals !) nbrs)
+data Color = R | G | B
+  deriving (Eq, Show, Enum)
 
--- === Example Graphs ===
+graphProblem :: Graph () -> Prob Graph Color
+graphProblem g = Prob g (pure R <|> pure G <|> pure B)
 
+-- === Comonadic Focused Graph ===
+
+data FocusedGraph a = FocusedGraph 
+  { graph :: Graph a
+  , focus :: Int
+  } deriving (Show, Functor, Foldable)
+
+instance Comonad FocusedGraph where
+    extract = \fg -> nodeValues (graph fg) ! focus fg
+    extend f fg = 
+        let g' = graph fg
+            recompute = mapWithKey (\nodeId _ -> f (FocusedGraph g' nodeId))
+            newVals = recompute (nodeValues g')
+        in fg { graph = g' { nodeValues = newVals } }
+
+-- === Energy Computations ===
+
+energySpace :: Eq a => EnergySpace Graph FocusedGraph a
+energySpace = EnergySpace
+  { embed     = \g -> FocusedGraph g 1  
+  , localE    = \ (FocusedGraph g v) ->
+                       let nodeColor = nodeValues g ! v
+                           nbrs = neighbors g ! v
+                           neighborColors = map (nodeValues g !) nbrs
+                           countSameColor = length . filter (== nodeColor)
+                       in fromIntegral $ countSameColor neighborColors
+  , combineE  = (+)
+  , finalizeE = id
+  }
+
+-- === Run ===
+
+run :: Graph () -> IO ()
+run g = do
+  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace exhaustiveSearch
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace firstSolution
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace (thresholdSearch 22.0)
+  putStrLn $ "Minimum energy: " ++ show bestEnergy
+  for_ (toList $ nodeValues bestCfg) $ \(nodeId, color) ->
+      printf "Node %d → %s\n" nodeId (show color)
+  
 g1 :: Graph ()
 g1 = Graph 
   { nodeValues = fromList $ map (\n -> (n, ())) [1, 2, 3, 4]
@@ -75,77 +114,4 @@ g3 = Graph
       , (12, [9, 10, 11])
       ]
   }
-
--- === Colors for Graph Coloring ===
-
-data Color = R | G | B
-  deriving (Eq, Show, Enum)
-
-colorChoice :: MonadPlus m => m Color
-colorChoice = pure R <|> pure G <|> pure B
-
-graphProblem :: Graph () -> OptimizationProblem Graph Color
-graphProblem g = OptimizationProblem g colorChoice
-
--- === Comonadic Focused Graph ===
-
-data FocusedGraph a = FocusedGraph 
-  { graph :: Graph a
-  , focus :: Int
-  } deriving (Show, Functor, Foldable)
-
-getNodeValue :: FocusedGraph a -> a
-getNodeValue fg = nodeValues (graph fg) ! focus fg
-
-getNeighbors :: FocusedGraph a -> [a]
-getNeighbors fg = map snd $ getNeighborsOf (focus fg) (graph fg)
-
-instance Comonad FocusedGraph where
-    extract = getNodeValue
-    extend f fg = 
-        let g' = graph fg
-            recompute = mapWithKey (\nodeId _ -> f (FocusedGraph g' nodeId))
-            newVals = recompute (nodeValues g')
-        in fg { graph = g' { nodeValues = newVals } }
-
--- === Energy Computations ===
-
-countMatches :: Eq a => a -> [a] -> Double
-countMatches x = fromIntegral . length . filter (== x)
-
---
-
-focusedEmbed :: Graph a -> FocusedGraph a
-focusedEmbed g = FocusedGraph g 1  -- arbitrary starting focus
-
-localEnergy :: Eq a => FocusedGraph a -> Double
-localEnergy fg = countMatches (extract fg) (getNeighbors fg)
-
-energySpace :: Eq a => EnergySpace Graph FocusedGraph a
-energySpace = EnergySpace
-  { embed     = focusedEmbed
-  , localE    = localEnergy
-  , combineE  = (+)
-  , finalizeE = id
-  }
-
--- === Run ===
-
-printColoring :: Graph Color -> IO ()
-printColoring g0 = 
-    for_ (toList $ nodeValues g0) $ \(nodeId, color) ->
-        printf "Node %d → %s\n" nodeId (show color)
-
-runGraphColoring :: Graph () -> IO ()
-runGraphColoring g = do
-  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace exhaustiveSearch
---  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace firstSolution
---  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace (thresholdSearch 22.0)
-  putStrLn $ "Minimum energy: " ++ show bestEnergy
-  printColoring bestCfg
-  
--- === Main ===
-
-main :: Graph () -> IO ()
-main = runGraphColoring 
 
