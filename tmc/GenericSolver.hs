@@ -39,7 +39,8 @@ optimize problem energySpace strategy =
   let candidates = generateProblem problem
       score      = scoreSolution energySpace
   in runSearch strategy candidates score
-  
+
+
 ------------------------------------------------------------------------------
 -- A few search strategies
 

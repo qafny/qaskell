@@ -68,11 +68,12 @@ energySpace = EnergySpace
 run :: Graph () -> IO ()
 run g = do
   let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace exhaustiveSearch
---  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace firstSolution
---  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace (thresholdSearch 22.0)
   putStrLn $ "Minimum energy: " ++ show bestEnergy
   for_ (toList $ nodeValues bestCfg) $ \(nodeId, color) ->
       printf "Node %d → %s\n" nodeId (show color)
+
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace firstSolution
+--  let (bestCfg, bestEnergy) = head $ optimize (graphProblem g) energySpace (thresholdSearch 22.0)
   
 g1 :: Graph ()
 g1 = Graph 
