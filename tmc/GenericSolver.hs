@@ -7,9 +7,9 @@ import Data.Ord (comparing)
 
 ------------------------------------------------------------------------------
 
-data Prob s choice = Prob
-  { shape      :: s ()                                
-  , choose     :: forall m. MonadPlus m => m choice   
+data Prob s a choice = Prob
+  { shape      :: s a
+  , choose     :: forall m. MonadPlus m => a -> m choice   
   }
 
 data EnergySpace s w choice = EnergySpace
@@ -23,8 +23,8 @@ data SearchStrategy m s w choice = SearchStrategy
   { runSearch :: m (s choice) -> (s choice -> (s choice, Double)) -> m (s choice, Double)
   }
 
-generateProblem :: (Traversable s, MonadPlus m) => Prob s choice -> m (s choice)
-generateProblem (Prob sh ch) = traverse (const ch) sh
+generateProblem :: (Traversable s, MonadPlus m) => Prob s a choice -> m (s choice)
+generateProblem (Prob sh ch) = traverse ch sh
 
 scoreSolution :: (Comonad w, Foldable w) => EnergySpace s w choice -> s choice -> (s choice, Double)
 scoreSolution (EnergySpace embed local combine finalize) cfg =
@@ -33,7 +33,7 @@ scoreSolution (EnergySpace embed local combine finalize) cfg =
   in (cfg, total)
 
 optimize :: (Traversable s, Comonad w, Foldable w, MonadPlus m) => 
-  Prob s choice -> EnergySpace s w choice -> SearchStrategy m s w choice ->
+  Prob s a choice -> EnergySpace s w choice -> SearchStrategy m s w choice ->
   m (s choice, Double)
 optimize problem energySpace strategy =
   let candidates = generateProblem problem
