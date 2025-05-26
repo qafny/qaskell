@@ -2,11 +2,14 @@ module EqSum
   where
 
 import Control.Comonad
--- import Data.Functor.Identity
+import Control.Comonad.Env
+import Data.Functor.Identity
 import Control.Applicative
 
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
+
+import Data.Foldable
 
 import GenericSolver
 
@@ -15,12 +18,13 @@ listProblem xs =
   Prob xs (\x -> pure x <|> pure (-x))
 
 eqSum ::
-  EnergySpace [] NonEmpty Int
+  EnergySpace [] (Env [Int]) Int
 eqSum = EnergySpace
-  { embed = \(x:xs) -> x :| xs
+  { embed = \xs -> env xs 0
   , combineE = (+)
-  , finalizeE = id
-  , localE = \xs -> abs $ fromIntegral $ sum xs
+  , finalizeE = (^ 2)
+  , localE = \xs ->
+      fromIntegral $ sum (ask xs)
   }
 
 run :: [Int] -> IO ()

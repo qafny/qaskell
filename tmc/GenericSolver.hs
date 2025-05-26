@@ -26,13 +26,13 @@ data SearchStrategy m s w choice = SearchStrategy
 generateProblem :: (Traversable s, MonadPlus m) => Prob s a choice -> m (s choice)
 generateProblem (Prob sh ch) = traverse ch sh
 
-scoreSolution :: (Comonad w, Foldable w) => EnergySpace s w choice -> s choice -> (s choice, Double)
+scoreSolution :: (Comonad w, Foldable w, Show (s choice)) => EnergySpace s w choice -> s choice -> (s choice, Double)
 scoreSolution (EnergySpace embed local combine finalize) cfg =
   let w = embed cfg
       total = finalize (foldr combine 0.0 (extend local w))
   in (cfg, total)
 
-optimize :: (Traversable s, Comonad w, Foldable w, MonadPlus m) => 
+optimize :: (Traversable s, Comonad w, Foldable w, MonadPlus m, Show (s choice)) => 
   Prob s a choice -> EnergySpace s w choice -> SearchStrategy m s w choice ->
   m (s choice, Double)
 optimize problem energySpace strategy =
