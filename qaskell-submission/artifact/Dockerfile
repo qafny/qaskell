@@ -33,5 +33,5 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTR
     cabal update && cabal build
 
 # Start ghci REPL
-CMD bash -c ". /root/.ghcup/env && ghcup set ghc latest"
+CMD bash -c ". /root/.ghcup/env && ghcup set ghc latest && bash"
 

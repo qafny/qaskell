@@ -20,8 +20,8 @@ runExample example mode = case (example, mode) of
   ("color", "quantum")   -> print $ solveQuantum (graphColoring 2 graph4)
   ("color", "classical") -> print $ solveClassical (graphColoring 2 graph4)
 
---   ("clique", "quantum")   -> print $ solveQuantum cliqueFinding
---   ("clique", "classical") -> print $ solveClassical cliqueFinding
+  ("clique", "quantum")   -> print $ solveQuantum (cliqueFinding 3 graph1)
+  ("clique", "classical") -> print $ solveClassical (cliqueFinding 3 graph1)
 
 --   ("cover", "quantum")    -> print $ solveQuantum exactCover
 --   ("cover", "classical")  -> print $ solveClassical exactCover
@@ -39,8 +39,7 @@ usage = do
   putStrLn "Examples:"
   putStrLn "  eqsum       # eqSum [1,2,3]"
   putStrLn "  color    # graphColoring 2 graph4"
---   putStrLn "  clique      # cliqueFinding"
---   putStrLn "  cover       # exactCover"
+  putStrLn "  clique      # cliqueFinding"
 --   putStrLn "  infer       # inferType"
   putStrLn ""
   putStrLn "Modes:"
