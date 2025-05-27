@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source /root/.ghcup/env
+ghcup set ghc latest
+
 echo "Clique Classical:"
 cabal run qaskell -- clique classical
 
