@@ -54,7 +54,7 @@ instance ShowParens a => Show (Summed a) where
 
 instance ShowParens a => Show (Tensor a) where
   show (Tensor []) = "EmptyTensor"
-  show (Tensor xs) = unwords $ intersperse "⊗" (map show xs)
+  show (Tensor xs) = unwords $ intersperse "@" (map show xs)
 
 class Show a => ShowParens a where
   showParens :: a -> String

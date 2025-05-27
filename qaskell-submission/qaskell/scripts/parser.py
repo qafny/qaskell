@@ -5,7 +5,7 @@ import re
 pauli_string = sys.stdin.read().strip()
 
 # Matches terms like: 0.5 (Z(a) ⊗ Z(b)) or I(a) ⊗ I(b)
-pattern = r"([+-]?\d+(?:\.\d*)?)\s*\(\s*([IXYZ])\((\w)\)\s*⊗\s*([IXYZ])\((\w)\)\s*\)"
+pattern = r"([+-]?\d+(?:\.\d*)?)\s*\(\s*([IXYZ])\((\w)\)\s*@\s*([IXYZ])\((\w)\)\s*\)"
 matches = re.findall(pattern, pauli_string)
 
 # Step 1: Collect all qubit labels

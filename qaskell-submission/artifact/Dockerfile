@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies: git, curl, cabal, ghc, Python
 RUN apt-get update && apt-get install -y \
+    locales \
     build-essential \
     git \
     curl \
@@ -33,5 +34,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTR
     cabal update && cabal build
 
 COPY bin .
+
+# Set UTF-8 as default locale
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+CMD bash
 
 

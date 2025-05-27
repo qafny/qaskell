@@ -1,13 +1,21 @@
 # Qaskell Artifacts Bootstrap
 
-## Build
+We assume Docker is present on the system.
 
-        $ docker build -t qaskell .
+## Build & Run
 
-## Run
+                $ ./run.sh
 
-        $ docker run -it qaskell
+This will build a container and run the following examples both classically and as a quantum qiskit simulation.
 
-## Experiment
+* Equal Sum on a small list `[1, 3, 2]`
 
-Follow README under `../qaskell`.
+* Clique Finding on the graph
+
+                A --- B    D
+                |    /     |
+                |   /      |
+                |  /       |
+                | /        |
+                C          E
+

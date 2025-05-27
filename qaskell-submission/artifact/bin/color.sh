@@ -4,4 +4,4 @@ echo "Graph Color Classical:"
 cabal run qaskell -- eqsum classical
 
 echo "Graph Color Quantum:"
-cabal run qaskell -- color quantum | python scripts/parser.py > scripts/color.py && python scripts/color.py
+cabal run qaskell -- color quantum | python3 scripts/parser.py > scripts/color.py && python3 scripts/color.py
