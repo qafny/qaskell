@@ -18,6 +18,10 @@ RUN apt-get update && apt-get install -y \
 # Clone your repo into the image
 RUN git clone https://github.com/qafny/qaskell.git /qaskell
 
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 # Set working directory to the nested Haskell project
 WORKDIR /qaskell/qaskell-submission/qaskell
 
@@ -29,5 +33,5 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTR
     cabal update && cabal build
 
 # Start ghci REPL
-CMD bash -c ". /root/.ghcup/env && ghcup set ghc latest && cabal repl"
+CMD bash -c ". /root/.ghcup/env && ghcup set ghc latest"
 
