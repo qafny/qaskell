@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source /root/.ghcup/env
+ghcup set ghc latest
+
 echo "EqSum Classical:"
 cabal run qaskell -- eqsum classical
 
