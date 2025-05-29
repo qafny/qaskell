@@ -26,8 +26,8 @@ runExample example mode = case (example, mode) of
 --   ("cover", "quantum")    -> print $ solveQuantum exactCover
 --   ("cover", "classical")  -> print $ solveClassical exactCover
 
---   ("infer", "quantum")    -> print $ solveQuantum inferType
---   ("infer", "classical")  -> print $ solveClassical inferType
+  ("infer", "quantum")    -> print $ solveQuantum (inferType expr1)
+  ("infer", "classical")  -> print $ solveClassical (inferType expr1)
 
   _ -> usage
 
@@ -40,7 +40,7 @@ usage = do
   putStrLn "  eqsum       # eqSum [1,2,3]"
   putStrLn "  color    # graphColoring 2 graph4"
   putStrLn "  clique      # cliqueFinding"
---   putStrLn "  infer       # inferType"
+  putStrLn "  infer       # inferType"
   putStrLn ""
   putStrLn "Modes:"
   putStrLn "  quantum     # Run quantum solver"

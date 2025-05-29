@@ -7,4 +7,4 @@ echo "EqSum Classical:"
 cabal run qaskell -- eqsum classical
 
 echo "EqSum Quantum:"
-cabal run qaskell -- eqsum quantum | python3 scripts/parser.py > scripts/eqsum.py && python3 scripts/eqsum.py
+cabal run qaskell -- eqsum quantum | python3 scripts/parser.py > scripts/eqsum.py

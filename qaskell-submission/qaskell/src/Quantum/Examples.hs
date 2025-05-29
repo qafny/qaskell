@@ -144,6 +144,9 @@ lambda x ty body = MaybeExpr $ do
 expr1 :: MaybeExpr ()
 expr1 = lambda "x" IntType (var "x")
 
+exprFull :: MaybeExpr ()
+exprFull = app expr1 (var "y")
+
 instance Part (MaybeExpr a) where
   immediateChildren = coerce (immediateChildren :: (Maybe (Expr Maybe a) -> [Maybe (Expr Maybe a)]))
   truncateHere = coerce (truncateHere :: Int -> Maybe (Expr Maybe a) -> Maybe (Maybe (Expr Maybe a)))
