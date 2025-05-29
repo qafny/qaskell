@@ -19,3 +19,4 @@ This will build a container and run the following examples both classically and 
                 | /        |
                 C          E
 
+* Type Inference with `𝜆𝑥 : Int.𝑥`
