@@ -2,6 +2,9 @@ from collections import defaultdict
 import helpers
 import networkx as nx
 
+
+print_embedding = True
+
 A = 2
 
 n = 3
@@ -26,6 +29,10 @@ def main():
 
         for i in range(n):
             Q[((u * n) + i, (v * n) + i)] = A  ## = A for each same color vertex pairs which are edges
+
+    if print_embedding:
+        embedding = helpers.get_minor_embedding(Q)
+        print(embedding)
 
     response = helpers.run_on_dwave(Q, label="Graph Coloring", chainstrength=0, numruns=100)
     response_data = response.data(fields=['sample', 'energy', 'num_occurrences'])

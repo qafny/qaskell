@@ -1,6 +1,9 @@
 from collections import defaultdict
 import helpers
 
+
+print_embedding = True
+
 A = 1
 B = 1
 
@@ -16,6 +19,10 @@ def main():
 
         for j in range(i + 1, len(num_list)):
             Q[(i, j)] = B * num_list[i] * num_list[j]
+
+    if print_embedding:
+        embedding = helpers.get_minor_embedding(Q)
+        print(embedding)
 
     response = helpers.run_on_dwave(Q, label="Equal Sum", chainstrength=0, numruns=100)
     response_data = response.data(fields=['sample', 'energy', 'num_occurrences'])
