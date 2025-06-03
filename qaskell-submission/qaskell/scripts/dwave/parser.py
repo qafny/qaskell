@@ -1,11 +1,11 @@
+import sys
 import re
 import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Read input from stdin
-# pauli_string = sys.stdin.read().strip()
-pauli_string = "4.0 (Z(a) @ Z(a)) + 3.0 (Z(a) @ Z(b)) + 2.0 (Z(a) @ Z(c)) + 6.0 (Z(b) @ Z(c))"
+pauli_string = sys.stdin.read().strip()
 
 # Match terms like: 0.25 (Z(a) @ I(b) @ Z(c))
 term_pattern = r'([+-]?\d+(?:\.\d*)?)\s*\(\s*((?:[IXYZ]\(\w\)\s*@\s*)*[IXYZ]\(\w\))\s*\)'
