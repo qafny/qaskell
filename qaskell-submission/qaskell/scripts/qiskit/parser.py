@@ -66,7 +66,7 @@ for coeff, ops in parsed_terms:
     # Other term lengths: skip
 
 # Patch template
-with open('scripts/template.py', 'r') as f:
+with open('scripts/qiskit/template.py', 'r') as f:
     template = f.read()
 
 template = template.replace('n_qubits = 3', f'n_qubits = {len(qubit_labels)}')
