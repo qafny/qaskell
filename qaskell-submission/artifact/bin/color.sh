@@ -2,6 +2,9 @@
 
 target="$1"
 
+source /root/.ghcup/env
+ghcup set ghc latest
+
 echo "Graph Color Classical:"
 cabal run qaskell -- color classical
 
