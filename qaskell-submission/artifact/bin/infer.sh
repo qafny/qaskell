@@ -9,4 +9,4 @@ echo "inferType Classical:"
 cabal run qaskell -- infer classical
 
 echo "inferType Quantum:"
-cabal run qaskell -- infer quantum | python3 scripts/${target}/parser.py > scripts/infer.py && python3 scripts/${target}/infer.py
+cabal run qaskell -- infer quantum | python3 scripts/${target}/parser.py > scripts/${target}/infer.py && python3 scripts/${target}/infer.py
