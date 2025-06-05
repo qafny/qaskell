@@ -1,3 +1,7 @@
+###
+# NOTE: This script requires the D-Wave credentials in the form of an API key to run.
+###
+
 from dwave.system import DWaveSampler, EmbeddingComposite
 
 chainstrength = 1
