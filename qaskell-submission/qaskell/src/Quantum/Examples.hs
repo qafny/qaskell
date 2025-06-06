@@ -299,11 +299,12 @@ inferType expr =
                 pure overallTy
 
               _ -> Nothing
-
+          _ -> undefined
     }
-  where
-    nAryIntType 0 = IntType
-    nAryIntType n = IntType :-> nAryIntType (n-1)
+
+nAryIntType :: Int -> Type
+nAryIntType 0 = IntType
+nAryIntType n = IntType :-> nAryIntType (n-1)
 
 -- | Get the nodes from an adjacency list
 getNodes :: Eq a => [(a, a)] -> [a]

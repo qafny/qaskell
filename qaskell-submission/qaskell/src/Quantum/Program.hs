@@ -26,6 +26,8 @@ import qualified Numeric.LinearAlgebra as Matrix
 import Data.Complex
 import Data.Bifunctor (first, second)
 
+import Data.Bits (testBit)
+
 import Quantum.DistinctDepthN
 
 type VarId = Int
@@ -131,11 +133,14 @@ solveClassical prog =
                where isSubList xs ys = all (`elem` ys) xs
   in results
 
-solveQuantum :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+solveQuantum :: forall t a b c. (Show b, Show (t (Var a, b)), Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
 solveQuantum prog =
    let
+      structSize :: Int
+      structSize = length (struct prog)
+
       varStruct :: t (Var a)
       varStruct = runFresh (genChoices (struct prog))
 
@@ -147,12 +152,13 @@ solveQuantum prog =
       actualTuples = assignChoices (choices prog)
                                   pairs
 
-      encodedChoices = encodeChoices (choices prog)
+      encodedChoices = encodeChoices (view prog) (choices prog)
 
       conditions = map (\x -> (constraints prog (fmap (first choice) x), x)) actualTuples
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
-      decode (x, c) = decodeChoice encodedChoices c (var x)
+      decode (x, c) =
+        decodeChoice encodedChoices c (var x)
       
       optimize :: forall x. Eq x => Summed (Scaled x) -> Summed (Scaled x)
       optimize = clean . combine 
@@ -245,21 +251,32 @@ combine (Summed xs0) = Summed $ go xs0
       newX : go notLikes
 
 commuteScaledTensor :: Tensor (Scaled (Tensor a)) -> Scaled (Tensor a)
-commuteScaledTensor = fmap joinTensor . floatScalars
+commuteScaledTensor = {-# SCC commuteScaledTensor #-}
+  fmap joinTensor . floatScalars
+{-# INLINE commuteScaledTensor #-}
 
 joinSummed :: forall a. Summed (Summed a) -> Summed a
-joinSummed xs = coerce (concat (coerce xs :: [[a]]))
+joinSummed xs = {-# SCC joinSummed #-}
+  coerce (concat (coerce xs :: [[a]]))
+{-# INLINE joinSummed #-}
 
 joinTensor :: forall a. Tensor (Tensor a) -> Tensor a
-joinTensor xs = coerce (concat (coerce xs :: [[a]]))
+joinTensor xs = {-# SCC joinTensor #-}
+  coerce (concat (coerce xs :: [[a]]))
+{-# INLINE joinTensor #-}
 
 distr :: Tensor (Summed a) -> Summed (Tensor a)
 distr = sequenceA
 
-encodeChoices :: [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
-encodeChoices choices = zipWith (\choice i -> (choice, toPauli choiceCount i)) choices [0..]
+encodeChoices :: Show a => Int -> [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
+encodeChoices viewpoint choices = {-# SCC encodeChoices #-}
+    zipWith (\choice i ->
+                                  (choice, toPauli choiceCount i))
+                                choices
+                                [0..]
   where
     choiceCount = length choices
+{-# INLINE encodeChoices #-}
 
 decodeChoice :: Eq a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> a -> VarId -> Tensor (Summed ScaledPauli)
 decodeChoice encodedChoices choice x =
@@ -274,13 +291,19 @@ scaleSummed :: Complex Double -> Summed (Scaled a) -> Summed (Scaled a)
 scaleSummed k = fmap (scale k)
 
 tensor :: [Scaled a] -> Scaled (Tensor a)
-tensor xs = Scale (product (map getScalar xs)) (Tensor (map getVec xs))
+tensor xs = {-# SCC tensor #-}
+    Scale (product (map getScalar xs)) (Tensor (map getVec xs))
   where
     getScalar (Scale k _) = k
+    {-# INLINE getScalar #-}
     getVec (Scale _ x) = x
+    {-# INLINE getVec #-}
+{-# INLINE tensor #-}
 
 floatScalars :: Tensor (Scaled a) -> Scaled (Tensor a)
-floatScalars = tensor . coerce
+floatScalars = {-# SCC floatScalars #-}
+  tensor . coerce
+{-# INLINE floatScalars #-}
 
 add :: ScaledPauli -> ScaledPauli -> Summed ScaledPauli
 add x y = Summed [x, y]
@@ -294,19 +317,21 @@ pauliZ x = Scale 1 (Z x)
 pauliI :: VarId -> ScaledPauli
 pauliI x = Scale 1 (I x)
 
-toPauli :: Int -> Int -> (VarId -> Tensor (Summed ScaledPauli))
-toPauli totalChoiceCount i
-  | i > totalChoiceCount = error "toPauli: i > totalChoiceCount"
-  | i >= length allBitStrings = error "toPauli: i >= length allBitStrings"
-  | otherwise = \x -> Tensor $ map ($ x) (allBitStrings !! i)
+-- Helper to convert an integer to a big-endian list of bits
+toBits :: Int -> Int -> [Int]
+toBits d n = [ if testBit n i then 1 else 0 | i <- reverse [0..d-1] ]
+
+toPauli :: Int -> Int -> VarId -> Tensor (Summed ScaledPauli)
+toPauli totalChoiceCount i = \x ->
+  let
+      d = neededBitSize totalChoiceCount
+      bits = toBits d i
+      qubitIds = map (\j -> x * d + j) [0..d-1]
+      pauliOps = zipWith (\bit qubitId -> if bit == 1 then pos qubitId else neg qubitId) bits qubitIds
+  in Tensor pauliOps
   where
-    pos, neg :: VarId -> Summed ScaledPauli
-    pos x = scaleSummed (1/2) (sub (pauliI x) (pauliZ x))
-    neg x = scaleSummed (1/2) (add (pauliI x) (pauliZ x))
-
-    allBitStrings = replicateM bitSize [pos, neg]
-
-    bitSize = neededBitSize totalChoiceCount
+    pos v = scaleSummed (0.5) (sub (pauliI v) (pauliZ v)) -- |1> projector
+    neg v = scaleSummed (0.5) (add (pauliI v) (pauliZ v)) -- |0> projector
 
 neededBitSize :: Int -> Int
 neededBitSize = ceiling . logBase 2 . fromIntegral
