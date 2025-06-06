@@ -26,8 +26,8 @@ runExample example mode = case (example, mode) of
 --   ("cover", "quantum")    -> print $ solveQuantum exactCover
 --   ("cover", "classical")  -> print $ solveClassical exactCover
 
-  ("infer", "quantum")    -> print $ solveQuantum (inferType expr1)
-  ("infer", "classical")  -> print $ solveClassical (inferType expr1)
+  ("infer", "quantum")    -> print $ solveQuantum (inferType exprFull)
+  ("infer", "classical")  -> print $ solveClassical (inferType exprFull)
 
   _ -> usage
 
