@@ -1,18 +1,17 @@
-# EnQ Aritifact
+# EnQ Artifact
 
-TITLE: A Haskell Adiabatic DSL: Solving Classical Optimization Problems on Quantum Hardware
+TITLE: A Haskell Adiabatic DSL: Solving Classical Optimization Problems on Quantum Hardware  
 ICFP SUBMISSION NO: 38
-
 
 # METADATA
 
-- OS and resource (CPU, memory, disk, GPU) used by the authors to run the artifact
+- OS and resources (CPU, memory, disk, GPU) used by the authors to run the artifact
 
-We provide a single script to build a Docker image, and run each example in a temporary self contained container based on the built image.
+We provide a single script to build a Docker image and run each example in a temporary self-contained container based on the built image.
 
 The constructed "qaskell" image size is 10.48 GB.
 
-Artifact was tested with Docker v4.17.0 on macOS v15.5.
+The artifact was tested with Docker v4.17.0 on macOS v15.5.
 
 # Quick Start
 
@@ -22,21 +21,21 @@ From the `artifact/` directory execute `run.sh`.
 
 The whole process to build & run examples takes <10 mins.
 
-                $ ./run.sh
+        $ ./run.sh
 
-This will build a container and run the following examples both classically and as a quantum qiskit simulation.
+This will build a container and run the following examples both classically and as a quantum Qiskit simulation.
 
 ## Equal Sum Example
 
-* Equal Sum on a small list `[1, 3, 2]`
+Equal Sum on a small list `[1, 3, 2]`
 
-### Equal Sum Classical
+### Equal Sum - Classical
 
-Haskell solution can be run as follows:
+The Haskell solution can be run as follows:
 
         $ cabal run qaskell -- eqsum classical
 
-Or if you prefer to use a REPL, and test other data structures
+Or if you prefer to use a REPL and test other data structures:
 
         $ cabal repl
 
@@ -44,13 +43,13 @@ Or if you prefer to use a REPL, and test other data structures
 
         ghci> print $ solveClassical (eqSum [1,3,2])
 
-### Equal Sum Quantum
+### Equal Sum - Quantum
 
-Haskell solution that generates Pauli strings can be run as follows
+The Haskell solution that generates Pauli strings can be run as follows:
 
         $ cabal run qaskell -- eqsum quantum
 
-Or if you prefer to use a REPL, and test other data structures
+Or if you prefer to use a REPL and test other data structures:
 
         $ cabal repl
 
@@ -58,9 +57,9 @@ Or if you prefer to use a REPL, and test other data structures
 
         ghci> print $ solveQuantum (eqSum [1,3,2])
 
-## Graph coloring
+## Graph Coloring
 
-Graph coloring using the graph
+Graph coloring using the graph:
 
                 A --- B
                  \   /
@@ -69,13 +68,13 @@ Graph coloring using the graph
                     \
                      D --- E
 
-### Graph coloring - Classical
+### Graph Coloring - Classical
 
-Haskell solution can be run as follows:
+The Haskell solution can be run as follows:
 
         $ cabal run qaskell -- color classical
 
-Or if you prefer to use a REPL, test other data structures, and color counts
+Or if you prefer to use a REPL to test other data structures and color counts:
 
         $ cabal repl
 
@@ -85,11 +84,11 @@ Or if you prefer to use a REPL, test other data structures, and color counts
 
 There are other graphs in `ExampleData`: graph1, graph2, graph3, graph4, graph6, graph7, graph8
 
-### Graph coloring - Quantum
+### Graph Coloring - Quantum
 
-Similar to the Classical instructions, just simply
+Similar to the classical instructions, just simply:
 
-         $ cabal run qaskell -- color quantum
+        $ cabal run qaskell -- color quantum
 
 or
 
@@ -97,7 +96,7 @@ or
 
 ## Clique Finding
 
-Clique Finding on the graph
+Clique finding on the graph:
 
                 A --- B    D
                 |    /     |
@@ -106,13 +105,13 @@ Clique Finding on the graph
                 | /        |
                 C          E
 
-### Clique finding - Classical
+### Clique Finding - Classical
 
-Haskell solution can be run as follows:
+The Haskell solution can be run as follows:
 
         $ cabal run qaskell -- clique classical
 
-Or if you prefer to use a REPL, test other data structures, and clique sizes
+Or if you prefer to use a REPL to test other data structures and clique sizes:
 
         $ cabal repl
 
@@ -122,11 +121,11 @@ Or if you prefer to use a REPL, test other data structures, and clique sizes
 
 There are other graphs in `ExampleData`: graph1, graph2, graph3, graph4, graph6, graph7, graph8
 
-### Clique finding - Quantum
+### Clique Finding - Quantum
 
-Similar to the Classical instructions, just simply
+Similar to the classical instructions, just simply:
 
-         $ cabal run qaskell -- clique quantum
+        $ cabal run qaskell -- clique quantum
 
 or
 
@@ -134,15 +133,15 @@ or
 
 ## Type Inference
 
-Type Inference with `𝜆𝑥 : Int.𝑥`
+Type inference with `𝜆𝑥 : Int.𝑥`
 
 ### Type Inference - Classical
 
-Haskell solution can be run as follows:
+The Haskell solution can be run as follows:
 
         $ cabal run qaskell -- infer classical
 
-Or if you prefer to use a REPL, and test other expressions
+Or if you prefer to use a REPL and test other expressions:
 
         $ cabal repl
 
@@ -152,9 +151,9 @@ Or if you prefer to use a REPL, and test other expressions
 
 ### Type Inference - Quantum
 
-Similar to the Classical instructions, just simply
+Similar to the classical instructions, just simply:
 
-         $ cabal run qaskell -- clique quantum
+        $ cabal run qaskell -- infer quantum
 
 or
 
@@ -162,10 +161,11 @@ or
 
 ## Contents
 
-| *run.sh*                  | Build & Run Docker container and examples                     |
+| *run.sh*                  | Build & run Docker container and examples                     |
+|---------------------------|---------------------------------------------------------------|
 | *README.md*               | This README file                                              |
 | *Dockerfile*              | Docker container definition                                   |
 | *requirements.txt*        | Python requirements to run quantum examples and simulations   |
-| *bin/*                    | BASH scripts for Docker to run examples                       |
+| *bin/*                    | Bash scripts for Docker to run examples                       |
 | *../notebooks/*           | Python notebooks for running quantum examples                 |
-| *../qaskell/*             | The Haskell cabal project                                     |
+| *../qaskell/*             | The Haskell Cabal project                                     |
