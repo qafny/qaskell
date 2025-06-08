@@ -252,7 +252,10 @@ inferType expr =
         \case
           EmptyM -> Nothing
           VarM x tyInCtx -> do
-            ((), aTy) <- lookup x (ctx tyInCtx)
+            let aTy = case lookup x (ctx tyInCtx) of
+                        Just (_, ty) -> ty
+                        Nothing -> IntType
+
             guard (aTy == snd (ty tyInCtx))
             pure aTy
 
