@@ -301,7 +301,7 @@ inferType ctx expr =
 
             case overallTy of
               srcTy :-> tgtTy -> do
-                -- guard (xTy == srcTy)
+                guard (xTy == srcTy)
                 guard (tgtTy == bodyTy)
                 pure overallTy
 
