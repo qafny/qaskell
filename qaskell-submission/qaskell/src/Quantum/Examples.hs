@@ -246,13 +246,21 @@ maybeToEnergy :: Maybe a -> Int
 maybeToEnergy Nothing = 1
 maybeToEnergy (Just _) = 0
 
+debugInferType :: Bool
+debugInferType = False
+
+inferTypeDebugger :: (Show a, Show b) => (a -> b) -> a -> b
+inferTypeDebugger f
+  | debugInferType = traceShowId . f . traceShowId
+  | otherwise      = f
+
 inferType :: Ctx Type -> MaybeExpr () -> Program MaybeExpr () Type Int
 inferType ctx expr =
   Program
     { choices = map nAryIntType [0..length expr-1]
     , struct = expr
     , view = 2
-    , constraints = maybeToEnergy .
+    , constraints = maybeToEnergy . (inferTypeDebugger $
         \case
           EmptyM -> Nothing
           VarM x ((), ty) -> do
@@ -282,6 +290,7 @@ inferType ctx expr =
                 ((), bTy) = bTyInCtx
 
             guard (aTy == bTy :-> overallTy)
+            pure aTy
             --case aTy of
             --  srcTy :-> tgtTy -> do
              --   guard (srcTy == bTy)
@@ -294,13 +303,13 @@ inferType ctx expr =
 
             body <- bodyM
 
-            let bodyTyInCtx = getAnn body
-                ((), bodyTy) = ty
+            let ((), bodyTy) = getAnn body
 
-            --xTy <- lookup x ctx
-            --guard (xTy == paramTy)
+            xTy <- lookup x ctx
+            guard (xTy == paramTy)
 
             guard (overallTy == paramTy :-> bodyTy)
+            pure overallTy
 
             --case overallTy of
             --  srcTy :-> tgtTy -> do
@@ -310,6 +319,7 @@ inferType ctx expr =
 
             --  _ -> Nothing
           _ -> undefined
+          )
     }
 
 nAryIntType :: Int -> Type
