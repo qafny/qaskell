@@ -72,6 +72,7 @@ executable qaskell
 
     -- Other library packages from which modules are imported.
     build-depends:    base >=4.20.0.0,
+                      containers,
                       mtl,
                       hmatrix
 

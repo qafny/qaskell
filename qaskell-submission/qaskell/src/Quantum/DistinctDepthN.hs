@@ -1,8 +1,10 @@
 module Quantum.DistinctDepthN
   where
 
-import Data.List
+import Data.List (subsequences)
 import Data.Maybe
+
+import qualified Data.Set as Set
 
 class Part a where
   immediateChildren :: a -> [a]
@@ -18,8 +20,8 @@ instance Part [a] where
 data Action = Descend | TruncateHere
   deriving (Show)
 
-distinctNTuples :: (Eq a, Part a) => Int -> a -> [a]
-distinctNTuples n t = nub $ do
+distinctNTuples :: (Ord a, Part a) => Int -> a -> [a]
+distinctNTuples n t = nub' $ do
   action <- [Descend, TruncateHere]
   case action of
     Descend -> do
@@ -27,4 +29,7 @@ distinctNTuples n t = nub $ do
       distinctNTuples n child
 
     TruncateHere -> maybeToList $ truncateHere n t
+
+nub' :: Ord a => [a] -> [a]
+nub' = Set.toList . Set.fromList
 

@@ -30,19 +30,32 @@ import Data.Bits (testBit)
 
 import Quantum.DistinctDepthN
 
+import qualified Data.Map.Strict as M
+
+import Debug.Trace
+
+debugSolver :: Bool
+debugSolver = False
+
 type VarId = Int
 
 data PauliExpr = I VarId | Z VarId
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 data Scaled a = Scale (Complex Double) a
-  deriving (Functor)
+  deriving (Functor, Eq)
 
 newtype Tensor a = Tensor [a]
-  deriving (Functor, Eq, Foldable, Traversable)
+  deriving (Functor, Eq, Foldable, Traversable, Ord)
 
 newtype Summed a = Summed [a]
   deriving (Functor, Applicative)
+
+instance Eq a => Eq (Summed a) where
+  Summed xs == Summed ys =
+      all (\x -> count x xs == count x ys) xs
+    where
+      count x = length . filter (== x)
 
 type ScaledPauli = Scaled PauliExpr
 type ScaledTensor a = Scaled (Tensor a)
@@ -110,7 +123,7 @@ minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
-solveClassical :: forall t a b c. (Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+solveClassical :: forall t a b c. (Eq (t a), Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   [(c, t (a, b))]
 solveClassical prog =
@@ -133,7 +146,7 @@ solveClassical prog =
                where isSubList xs ys = all (`elem` ys) xs
   in results
 
-solveQuantum :: forall t a b c. (Show b, Show (t (Var a, b)), Eq (t a), Eq (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+solveQuantum :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
 solveQuantum prog =
@@ -152,7 +165,7 @@ solveQuantum prog =
       actualTuples = assignChoices (choices prog)
                                   pairs
 
-      encodedChoices = encodeChoices (view prog) (choices prog)
+      encodedChoices = encodeChoices (choices prog)
 
       conditions = map (\x -> (constraints prog (fmap (first choice) x), x)) actualTuples
 
@@ -160,8 +173,14 @@ solveQuantum prog =
       decode (x, c) =
         decodeChoice encodedChoices c (var x)
       
-      optimize :: forall x. Eq x => Summed (Scaled x) -> Summed (Scaled x)
-      optimize = clean . combine 
+      optimize :: forall x. (ShowParens x, Ord x) => Summed (Scaled x) -> Summed (Scaled x)
+      optimize x =
+        let y = combine x
+            y' = combine' x
+        in
+        if debugSolver && y /= y'
+          then error $ "combine incorrect: " ++ show (y, y')
+          else clean y
 
       constraintResults :: [(c, t (Var a, b))]
       constraintResults =
@@ -222,14 +241,31 @@ solveQuantum prog =
     toComplex :: c -> Complex Double
     toComplex = fromRational . toRational
 
+showChoices :: Show a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> String
+showChoices = unlines . zipWith go [0..]
+  where
+    go x (a, f) =
+      "(" ++ show a ++ ", " ++ show (f x) ++ ")"
+
 clean :: Summed (Scaled a) -> Summed (Scaled a)
 clean (Summed xs) = Summed $ filter nonZero xs
   where
     nonZero (Scale 0 _) = False
     nonZero _ = True
 
-combine :: forall a. Eq a => Summed (Scaled a) -> Summed (Scaled a)
-combine (Summed xs0) = Summed $ go xs0
+combine :: (Ord a) => Summed (Scaled a) -> Summed (Scaled a)
+-- combine = combine'
+combine (Summed xs) =
+  Summed
+    [ Scale k x
+    | (x,k) <- M.toList (foldl' add M.empty xs)
+    , k /= 0
+    ]
+  where
+    add m (Scale k x) = M.insertWith (+) x k m
+
+combine' :: forall a. Eq a => Summed (Scaled a) -> Summed (Scaled a)
+combine' (Summed xs0) = Summed $ go xs0
   where
     isLike :: Scaled a -> Scaled a -> Bool
     isLike (Scale _ x) (Scale _ y) = x == y
@@ -268,8 +304,8 @@ joinTensor xs = {-# SCC joinTensor #-}
 distr :: Tensor (Summed a) -> Summed (Tensor a)
 distr = sequenceA
 
-encodeChoices :: Show a => Int -> [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
-encodeChoices viewpoint choices = {-# SCC encodeChoices #-}
+encodeChoices :: [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
+encodeChoices choices = {-# SCC encodeChoices #-}
     zipWith (\choice i ->
                                   (choice, toPauli choiceCount i))
                                 choices

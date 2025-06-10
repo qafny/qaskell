@@ -26,8 +26,11 @@ runExample example mode = case (example, mode) of
 --   ("cover", "quantum")    -> print $ solveQuantum exactCover
 --   ("cover", "classical")  -> print $ solveClassical exactCover
 
-  ("infer", "quantum")    -> print $ solveQuantum (inferType exprFull)
-  ("infer", "classical")  -> print $ solveClassical (inferType exprFull)
+  ("infer1", "quantum")    -> print $ solveQuantum (inferType [("x", IntType)] expr1)
+  ("infer1", "classical")  -> print $ solveClassical (inferType [("x", IntType)] expr1)
+  
+  ("infer", "quantum")    -> print $ solveQuantum (inferType [("x", IntType), ("y", IntType)] exprFull)
+  ("infer", "classical")  -> print $ solveClassical (inferType [("x", IntType), ("y", IntType)] exprFull)
 
   _ -> usage
 
