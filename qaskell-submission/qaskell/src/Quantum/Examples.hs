@@ -281,12 +281,13 @@ inferType ctx expr =
             let ((), aTy) = aTyInCtx
                 ((), bTy) = bTyInCtx
 
-            case aTy of
-              srcTy :-> tgtTy -> do
-                guard (srcTy == bTy)
-                guard (tgtTy == overallTy)
-                pure overallTy
-              _ -> Nothing
+            guard (aTy == bTy :-> overallTy)
+            --case aTy of
+            --  srcTy :-> tgtTy -> do
+             --   guard (srcTy == bTy)
+            --    guard (tgtTy == overallTy)
+            ---    pure overallTy
+            --  _ -> Nothing
 
           LambdaM x paramTy bodyM ty -> do
             let ((), overallTy) = ty
@@ -299,13 +300,15 @@ inferType ctx expr =
             xTy <- lookup x ctx
             guard (xTy == paramTy)
 
-            case overallTy of
-              srcTy :-> tgtTy -> do
-                guard (xTy == srcTy)
-                guard (tgtTy == bodyTy)
-                pure overallTy
+            guard (overallTy == xTy :-> bodyTy)
 
-              _ -> Nothing
+            --case overallTy of
+            --  srcTy :-> tgtTy -> do
+            --    guard (xTy == srcTy)
+            --    guard (tgtTy == bodyTy)
+            --    pure overallTy
+
+            --  _ -> Nothing
           _ -> undefined
     }
 
