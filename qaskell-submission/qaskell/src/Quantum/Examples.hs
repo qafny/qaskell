@@ -297,10 +297,10 @@ inferType ctx expr =
             let bodyTyInCtx = getAnn body
                 ((), bodyTy) = ty
 
-            xTy <- lookup x ctx
-            guard (xTy == paramTy)
+            --xTy <- lookup x ctx
+            --guard (xTy == paramTy)
 
-            guard (overallTy == xTy :-> bodyTy)
+            guard (overallTy == paramTy :-> bodyTy)
 
             --case overallTy of
             --  srcTy :-> tgtTy -> do
