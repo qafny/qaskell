@@ -4,6 +4,7 @@ import System.Environment (getArgs)
 import Quantum.Program
 import Quantum.Examples
 import Quantum.ExampleData
+import qualified Quantum.CtxInferType as CtxInfer
 
 main :: IO ()
 main = do
@@ -32,6 +33,13 @@ runExample example mode = case (example, mode) of
   ("infer", "quantum")    -> print $ solveQuantum (inferType [("x", IntType), ("y", IntType)] exprFull)
   ("infer", "classical")  -> print $ solveClassical (inferType [("x", IntType), ("y", IntType)] exprFull)
 
+    -- The previous representation: --
+  ("ctx-infer1", "quantum")    -> print $ solveQuantum (CtxInfer.inferType CtxInfer.expr1)
+  ("ctx-infer1", "classical")  -> print $ solveClassical (CtxInfer.inferType CtxInfer.expr1)
+
+  ("ctx-infer", "quantum")    -> print $ solveQuantum (CtxInfer.inferType CtxInfer.exprFull)
+  ("ctx-infer", "classical")  -> print $ solveClassical (CtxInfer.inferType CtxInfer.exprFull)
+  
   _ -> usage
 
 usage :: IO ()
@@ -44,6 +52,7 @@ usage = do
   putStrLn "  color    # graphColoring 2 graph4"
   putStrLn "  clique      # cliqueFinding"
   putStrLn "  infer       # inferType"
+  putStrLn "  ctx-infer       # inferType"
   putStrLn ""
   putStrLn "Modes:"
   putStrLn "  quantum     # Run quantum solver"
