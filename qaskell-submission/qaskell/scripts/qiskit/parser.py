@@ -69,11 +69,11 @@ for coeff, ops in parsed_terms:
 
             if len(qubit_indices) == 1:
                 i = qubit_indices[0]
-                generated_lines.append(f"    qc.rz({2 * coeff}, {i})  # from: {ops}")
+                generated_lines.append(f"    qc.rz(-2 * gamma * {coeff}, {i})  # from: {ops}")
 
             elif len(qubit_indices) == 2:
                 i, j = qubit_indices
-                generated_lines.append(f"    qc.rzz({2 * coeff}, {i}, {j})  # from: {ops}")
+                generated_lines.append(f"    qc.rzz(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
 
             elif len(qubit_indices) > 2:
                 qubit_indices = sorted(qubit_indices)
@@ -83,7 +83,7 @@ for coeff, ops in parsed_terms:
                     generated_lines.append(f"    qc.cx({a}, {b})")
 
                 i, j = ladder_pairs[-1]
-                generated_lines.append(f"    qc.rzz({2 * coeff}, {i}, {j})  # from: {ops}")
+                generated_lines.append(f"    qc.rzz(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
 
                 for a, b in reversed(ladder_pairs[:-1]):
                     generated_lines.append(f"    qc.cx({a}, {b})")
