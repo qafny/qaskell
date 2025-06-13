@@ -43,20 +43,9 @@ for coeff, ops in parsed_terms:
                 generated_lines.append(f"    h['{qubit_labels[indices[0]]}'] = {coeff}")
             else:
                 generated_lines.append(f"    J[('{qubit_labels[0]}', '{qubit_labels[1]}')] = {coeff}")
-        # else:
-        #     for op, i in zip(ops_only, indices):
-        #         if op == 'Z':
-        #             ## TODO: If required write what to do when the all interactions are not ZZ, but the current one is
 
     elif len(ops_only) == 3:
 
-        # Single-qubit RZ cases
-        # for op, idx in [(op1, i), (op2, j), (op3, k)]:
-        #     if op == 'Z' and [op1, op2, op3].count('Z') == 1:
-        #         ## TODO: If required write what to do when the all but two interactions are Z
-        #         break
-
-        # Two-qubit RZZ cases
         if ops_only == ['Z', 'Z', 'I']:
             if indices[0] == indices[1]:
                 generated_lines.append(f"    h['{qubit_labels[indices[0]]}'] = {coeff}")
@@ -72,11 +61,6 @@ for coeff, ops in parsed_terms:
                 generated_lines.append(f"    h['{qubit_labels[indices[0]]}'] = {coeff}")
             else:
                 generated_lines.append(f"    J[('{qubit_labels[0]}', '{qubit_labels[2]}')] = {coeff}")
-
-        # else:
-        #     raise Exception(f"Unsupported 3-op term: {ops}")
-
-    # Other term lengths: skip
 
 # Patch template
 with open(f'{dir_path}/template.py', 'r') as f:

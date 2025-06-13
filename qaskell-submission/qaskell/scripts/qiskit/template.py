@@ -14,7 +14,7 @@ trotter_steps = 10
 T = 1.0
 
 qr = QuantumRegister(n_qubits)
-cr = ClassicalRegister(n_qubits)
+cr = ClassicalRegister(n_qubits, name='cr')
 qc = QuantumCircuit(qr, cr)
 
 for i in range(n_qubits):

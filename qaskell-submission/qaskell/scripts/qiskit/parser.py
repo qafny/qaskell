@@ -29,9 +29,6 @@ for coeff, ops in parsed_terms:
     if all(op == 'I' for op, _ in ops):
         continue
     
-    #print("Processing term with coeff:", coeff, "and ops:", ops)
-    #for op, _ in ops:
-    #    print("Found op:", op in 'IXYZ')
     # Map ops to indices
     op_index_pairs = [(op, label_to_index[q]) for op, q in ops]
     indices = [i for op, i in op_index_pairs]
@@ -43,7 +40,7 @@ for coeff, ops in parsed_terms:
     non_identity = [(i, p) for i, p in zip(labels, paulis) if p != 'I']
 
     if all(p == 'Z' for (_, p) in non_identity):
-        #print("All ops are Z, processing as a run of Z gates")
+
         # Map (index in qubit list, position in ops list)
         ops_with_indices = [(label_to_index[q], p) for p, q in ops]
 
@@ -51,16 +48,13 @@ for coeff, ops in parsed_terms:
         all_runs = []
 
         for pos, (idx, p) in enumerate(ops_with_indices):
-            #print("Processing pos", pos, "with index", idx, "and op", p)
             if p == 'Z':
-                #print("Found Z at pos", pos, "with index", idx)
                 current_run.append((pos, idx))
             else:
                 if current_run:
                     all_runs.append(current_run)
                     current_run = []
         if current_run:
-            #print("Appending final run:", current_run)
             all_runs.append(current_run)
 
         # Process each Z run independently

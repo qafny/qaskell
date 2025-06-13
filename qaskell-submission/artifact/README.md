@@ -25,6 +25,8 @@ The whole process to build & run examples takes <10 mins.
 
 This will build a container and run the following examples both classically and as a quantum Qiskit simulation.
 
+Example for EqSum also emits a D-Wave script. D-Wave targets require credentials to run on Dwave hardware.
+
 ## Equal Sum Example
 
 Equal Sum on a small list `[1, 3, 2]`
@@ -133,7 +135,7 @@ or
 
 ## Type Inference
 
-Type inference with `𝜆𝑥 : Int.𝑥`
+Type inference with `(𝜆𝑥 : Int.𝑥)𝑦`
 
 ### Type Inference - Classical
 
