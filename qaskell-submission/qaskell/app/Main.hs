@@ -21,11 +21,11 @@ runExample example mode = case (example, mode) of
   ("color", "quantum")   -> print $ solveQuantum (graphColoring 2 graph4)
   ("color", "classical") -> print $ solveClassical (graphColoring 2 graph4)
 
-  ("clique", "quantum")   -> print $ solveQuantum (cliqueFinding 3 graph1)
-  ("clique", "classical") -> print $ solveClassical (cliqueFinding 3 graph1)
+  ("clique", "quantum")   -> print $ solveQuantum (cliqueFinding graph1)
+  ("clique", "classical") -> print $ solveClassical (cliqueFinding graph1)
 
---   ("cover", "quantum")    -> print $ solveQuantum exactCover
---   ("cover", "classical")  -> print $ solveClassical exactCover
+  -- ("cover", "quantum")    -> print $ solveQuantum exactCover
+  -- ("cover", "classical")  -> print $ solveClassical exactCover
 
   ("infer1", "quantum")    -> print $ solveQuantum (inferType [("x", IntType)] expr1)
   ("infer1", "classical")  -> print $ solveClassical (inferType [("x", IntType)] expr1)

@@ -19,11 +19,9 @@ import Data.Functor
 import Data.Coerce
 
 import Data.Foldable
-import Data.List (nub, partition, intersperse, intercalate)
+import Data.List (partition, intersperse)
 
-import Numeric.LinearAlgebra hiding ((<>), toList, scale, add, sub)
-import qualified Numeric.LinearAlgebra as Matrix
-import Data.Complex
+import Numeric.LinearAlgebra hiding ((<>), toList, scale, add)
 import Data.Bifunctor (first, second)
 
 import Data.Bits (testBit)
@@ -31,8 +29,6 @@ import Data.Bits (testBit)
 import Quantum.DistinctDepthN
 
 import qualified Data.Map.Strict as M
-
-import Debug.Trace
 
 debugSolver :: Bool
 debugSolver = False
@@ -151,9 +147,6 @@ solveQuantum :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, 
   Summed (Scaled (Tensor PauliExpr))
 solveQuantum prog =
    let
-      structSize :: Int
-      structSize = length (struct prog)
-
       varStruct :: t (Var a)
       varStruct = runFresh (genChoices (struct prog))
 
@@ -166,8 +159,6 @@ solveQuantum prog =
                                   pairs
 
       encodedChoices = encodeChoices (choices prog)
-
-      conditions = map (\x -> (constraints prog (fmap (first choice) x), x)) actualTuples
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
       decode (x, c) =
@@ -200,7 +191,7 @@ solveQuantum prog =
       coeffsToComplex ::
         [(c, Summed (Scaled (Tensor PauliExpr)))] ->
         [(Complex Double, Summed (Scaled (Tensor PauliExpr)))]
-      coeffsToComplex = map (first toComplex)
+      coeffsToComplex = map (first toComplex')
 
       commuteTensorScaling ::
         [(c, Summed (Tensor (Scaled (Tensor PauliExpr))))] ->
@@ -238,8 +229,8 @@ solveQuantum prog =
    in
    compiled
    where
-    toComplex :: c -> Complex Double
-    toComplex = fromRational . toRational
+    toComplex' :: c -> Complex Double
+    toComplex' = fromRational . toRational
 
 showChoices :: Show a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> String
 showChoices = unlines . zipWith go [0..]
@@ -258,11 +249,11 @@ combine :: (Ord a) => Summed (Scaled a) -> Summed (Scaled a)
 combine (Summed xs) =
   Summed
     [ Scale k x
-    | (x,k) <- M.toList (foldl' add M.empty xs)
+    | (x,k) <- M.toList (foldl' add' M.empty xs)
     , k /= 0
     ]
   where
-    add m (Scale k x) = M.insertWith (+) x k m
+    add' m (Scale k x) = M.insertWith (+) x k m
 
 combine' :: forall a. Eq a => Summed (Scaled a) -> Summed (Scaled a)
 combine' (Summed xs0) = Summed $ go xs0
@@ -305,18 +296,18 @@ distr :: Tensor (Summed a) -> Summed (Tensor a)
 distr = sequenceA
 
 encodeChoices :: [a] -> [(a, VarId -> Tensor (Summed ScaledPauli))]
-encodeChoices choices = {-# SCC encodeChoices #-}
-    zipWith (\choice i ->
-                                  (choice, toPauli choiceCount i))
-                                choices
+encodeChoices choices' = {-# SCC encodeChoices #-}
+    zipWith (\choice' i ->
+                                  (choice', toPauli choiceCount i))
+                                choices'
                                 [0..]
   where
-    choiceCount = length choices
+    choiceCount = length choices'
 {-# INLINE encodeChoices #-}
 
 decodeChoice :: Eq a => [(a, VarId -> Tensor (Summed ScaledPauli))] -> a -> VarId -> Tensor (Summed ScaledPauli)
-decodeChoice encodedChoices choice x =
-  case lookup choice encodedChoices of
+decodeChoice encodedChoices choice' x =
+  case lookup choice' encodedChoices of
     Just pauliFn -> pauliFn x
     Nothing -> error "decodeChoice"
 
@@ -370,22 +361,20 @@ toPauli totalChoiceCount i = \x ->
     neg v = scaleSummed (0.5) (add (pauliI v) (pauliZ v)) -- |0> projector
 
 neededBitSize :: Int -> Int
-neededBitSize = ceiling . logBase 2 . fromIntegral
+neededBitSize n = ceiling (logBase 2 (fromIntegral n :: Double))
 
 strength :: Functor g => (a, g b) -> g (a, b)
 strength (x, gy) = fmap (\y -> (x, y)) gy
 
 createChoices :: (Traversable t, Applicative f) =>
   f b -> t a -> f (t (a, b))
-createChoices ds struct =
-    traverse (\a -> strength (a, ds)) struct
-  where
-    go a d = return (a, d)
+createChoices ds struct' =
+    traverse (\a -> strength (a, ds)) struct'
 
 assignChoices :: Traversable t => [b] -> [t a] -> [t (a, b)]
-assignChoices choices xss = do
+assignChoices choices' xss = do
   xs <- xss
-  ys <- replicateM (length xs) choices
+  ys <- replicateM (length xs) choices'
   pure (fillTraversablePairs ys xs)
 
 fillTraversablePairs :: Traversable t => [a] -> t b -> t (b, a)

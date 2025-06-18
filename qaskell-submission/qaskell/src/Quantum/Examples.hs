@@ -34,10 +34,12 @@ eqSum inputList =
     { choices = [-1, 1]
     , struct = inputList
     , view = 2
-    , constraints = \[(a, choiceA), (b, choiceB)] ->
+    , constraints = \case
+    [(a, choiceA), (b, choiceB)] ->
         (a * choiceA)
           *
         (b * choiceB)
+    _ -> error "eqSum: Expected exactly two choices"
     }
 
 -- ghci> solveQuantum (graphColoring 2 graph1)
@@ -49,26 +51,27 @@ graphColoring colorCount edges =
     { choices = [0..colorCount-1]
     , struct = getNodes edges
     , view = 2
-    , constraints = go
+    , constraints = \case
+      [(a, choiceA), (b, choiceB)] ->
+        if (a, b) `elem` edges && choiceA == choiceB
+        then 1
+        else 0
+      _ -> error "graphColoring: Expected exactly two choices"
     }
-  where
-    go :: [((Int, Int))] -> Int
-    go [(a, choiceA), (b, choiceB)] =
-      if (a, b) `elem` edges && choiceA == choiceB
-      then 1
-      else 0
 
 cliqueFinding ::
-  Int -> AdjList Int -> Program [] Int Int Int
-cliqueFinding cliqueSize edges =
+  AdjList Int -> Program [] Int Int Int
+cliqueFinding edges =
   Program
     { choices = [0, 1]
     , struct = getNodes edges
     , view = 2
-    , constraints = \[(a, choiceA), (b, choiceB)] ->
+    , constraints = \case
+      [(a, choiceA), (b, choiceB)] ->
         if (a, b) `elem` edges
         then 0
         else choiceA * choiceB
+      _ -> error "cliqueFinding: Expected exactly two choices"
     }
 
 data Cover a = MkCover { vars :: [a], valuation :: [a] -> Bool }
@@ -79,11 +82,12 @@ exactCover cover =
     { choices = [0, 1],
       struct = vars cover,
       view = 3,
-      constraints =
-        \[(a, choiceA), (b, choiceB), (c, choiceC)] ->
+      constraints = \case
+        [(a, choiceA), (b, choiceB), (c, choiceC)] ->
           if valuation cover [a, b, c] && choiceA + choiceB + choiceC == 1
           then 0
           else 1
+        _ -> error "exactCover: Expected exactly three choices"
     }
 
 infixr :->
@@ -106,11 +110,11 @@ deriving instance (Eq a, Eq (f (Expr f a)), Eq (f (Expr f a, Expr f a))) =>
 deriving instance (Ord a, Ord (f (Expr f a)), Ord (f (Expr f a, Expr f a))) =>
   Ord (Expr f a)
 mmorphExpr :: Functor f =>
-  (forall a. f a -> g a) ->
+  (forall x. f x -> g x) ->
   Expr f a ->
   Expr g a
-mmorphExpr alpha (Var x ann) = Var x ann
-mmorphExpr alpha (Num n ann) = Num n ann
+mmorphExpr _ (Var x ann) = Var x ann
+mmorphExpr _ (Num n ann) = Num n ann
 mmorphExpr alpha (App children ann) =
   App (alpha $ fmap (both (mmorphExpr alpha)) children) ann
 mmorphExpr alpha (Lambda x ty body ann) =
@@ -122,11 +126,21 @@ maybeExpr = Just . mmorphExpr (Just . runIdentity)
 newtype MaybeExpr a = MaybeExpr { unMaybeExpr :: Maybe (Expr Maybe a) }
   deriving (Show, Functor, Foldable, Traversable, Eq, Ord)
 
+pattern EmptyM :: MaybeExpr a
 pattern EmptyM = MaybeExpr Nothing
+
+pattern VarM :: String -> a -> MaybeExpr a
 pattern VarM x ann = MaybeExpr (Just (Var x ann))
+
+pattern NumM :: Int -> a -> MaybeExpr a
 pattern NumM x ann = MaybeExpr (Just (Num x ann))
+
+pattern AppM :: Maybe (Expr Maybe a, Expr Maybe a) -> a -> MaybeExpr a
 pattern AppM children ann = MaybeExpr (Just (App children ann))
+
+pattern LambdaM :: String -> Type -> Maybe (Expr Maybe a) -> a -> MaybeExpr a
 pattern LambdaM x ty body ann = MaybeExpr (Just (Lambda x ty body ann))
+
 
 var :: String -> MaybeExpr ()
 var x = VarM x ()
@@ -163,11 +177,11 @@ instance Part (Maybe (Expr Maybe a)) where
   immediateChildren (Just (App Nothing _ann)) = []
   immediateChildren (Just (Lambda _x _ty body _ann)) = map Just $ maybeToList body
 
-  truncateHere 0 t = Just Nothing
-  truncateHere n Nothing = Just Nothing
-  truncateHere n (Just t@(Var {})) = Just $ Just t
-  truncateHere n (Just t@(Num {})) = Just $ Just t
-  truncateHere n (Just (App Nothing ann)) =
+  truncateHere 0 _ = Just Nothing
+  truncateHere _ Nothing = Just Nothing
+  truncateHere _ (Just t@(Var {})) = Just $ Just t
+  truncateHere _ (Just t@(Num {})) = Just $ Just t
+  truncateHere _ (Just (App Nothing ann)) =
     Just $ Just $ App Nothing ann
   truncateHere n (Just (App (Just (left, right)) ann)) =
     Just $ Just $
@@ -265,7 +279,7 @@ inferType ctx expr =
           EmptyM -> Nothing
           VarM x ((), ty) -> do
             let aTy = case lookup x ctx of
-                        Just ty -> ty
+                        Just ty' -> ty'
                         Nothing -> error $ "Cannot find " ++ show x
 
             guard (aTy == ty)
