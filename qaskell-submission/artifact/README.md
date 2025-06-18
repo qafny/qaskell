@@ -13,6 +13,12 @@ The constructed "qaskell" image size is 10.48 GB.
 
 The artifact was tested with Docker v4.17.0 on macOS v15.5.
 
+# Haskell version INFO
+
+GHC 9.12.2
+cabal-install version 3.12.1.0
+compiled using version 3.12.1.0 of the Cabal library
+
 # Quick Start
 
 From the `artifact/` directory execute `run.sh`.
