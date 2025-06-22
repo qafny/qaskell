@@ -120,9 +120,10 @@ minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
 solveClassical :: forall t a b c. (Eq (t a), Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
+  (t (a, b) -> Bool) ->
   Program t a b c ->
   [(c, t (a, b))]
-solveClassical prog =
+solveClassical p prog =
   let
      varStruct = runFresh (genChoices (struct prog))
 
@@ -133,7 +134,7 @@ solveClassical prog =
      encodedChoices = createChoices (choices prog) varStruct
 
      results =
-          minimumsFst $ encodedChoices <&>
+          minimumsFst $ filter (p . snd) $ encodedChoices <&>
                   (\ aChoice -> (sum $ actualTuples <&>
                         (\ aTuple -> if isSubList aTuple (toList aChoice)
                                      then (constraints prog (fmap (first choice) aTuple))
