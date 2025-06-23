@@ -159,7 +159,9 @@ There are other graphs in `ExampleData`: graph1, graph2, graph3, graph4, graph6,
 
 #### Expected result
 
+Using the graph above, for example, 1, 2, 3 should be grouped together as they form a clique.
 
+        [(0,[(1,1),(2,1),(3,1),(4,0),(5,0)])]
 
 ### Clique Finding - Quantum
 
@@ -173,7 +175,7 @@ or
 
 #### Expected result
 
-There are 2 valid quantum solutions with high probability to clique finding: 00111 and 11000. Note: Qiskit is little endian.
+There are 2 valid quantum solutions with high probability to clique finding: 00111 and 11000. Note: Qiskit is little endian, bit strings should be read backwards.
 
 ## Type Inference
 
