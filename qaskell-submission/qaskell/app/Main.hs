@@ -16,29 +16,23 @@ main = do
 runExample :: String -> String -> IO ()
 runExample example mode = case (example, mode) of
   ("eqsum", "quantum")    -> print $ solveQuantum (eqSum [1,3,2])
-  ("eqsum", "classical")  -> print $ solveClassical (eqSum [1,3,2])
+  ("eqsum", "classical")  -> print $ solveClassical (const True) (eqSum [1,3,2])
 
   ("color", "quantum")   -> print $ solveQuantum (graphColoring 2 graph4)
-  ("color", "classical") -> print $ solveClassical (graphColoring 2 graph4)
+  ("color", "classical") -> print $ solveClassical (const True) (graphColoring 2 graph4)
 
   ("clique", "quantum")   -> print $ solveQuantum (cliqueFinding graph1)
-  ("clique", "classical") -> print $ solveClassical (cliqueFinding graph1)
-
-  -- ("cover", "quantum")    -> print $ solveQuantum exactCover
-  -- ("cover", "classical")  -> print $ solveClassical exactCover
-
-  ("infer1", "quantum")    -> print $ solveQuantum (inferType [("x", IntType)] expr1)
-  ("infer1", "classical")  -> print $ solveClassical (inferType [("x", IntType)] expr1)
+  ("clique", "classical") -> print $ solveClassical (hasNOnes 3) (cliqueFinding graph1)
   
   ("infer", "quantum")    -> print $ solveQuantum (inferType [("x", IntType), ("y", IntType)] exprFull)
-  ("infer", "classical")  -> print $ solveClassical (inferType [("x", IntType), ("y", IntType)] exprFull)
+  ("infer", "classical")  -> print $ solveClassical (const True) (inferType [("x", IntType), ("y", IntType)] exprFull)
 
     -- The previous representation: --
   ("ctx-infer1", "quantum")    -> print $ solveQuantum (CtxInfer.inferType CtxInfer.expr1)
-  ("ctx-infer1", "classical")  -> print $ solveClassical (CtxInfer.inferType CtxInfer.expr1)
+  ("ctx-infer1", "classical")  -> print $ solveClassical (const True) (CtxInfer.inferType CtxInfer.expr1)
 
   ("ctx-infer", "quantum")    -> print $ solveQuantum (CtxInfer.inferType CtxInfer.exprFull)
-  ("ctx-infer", "classical")  -> print $ solveClassical (CtxInfer.inferType CtxInfer.exprFull)
+  ("ctx-infer", "classical")  -> print $ solveClassical (const True) (CtxInfer.inferType CtxInfer.exprFull)
   
   _ -> usage
 

@@ -49,9 +49,9 @@ newtype Summed a = Summed [a]
 
 instance Eq a => Eq (Summed a) where
   Summed xs == Summed ys =
-      all (\x -> count x xs == count x ys) xs
+      all (\x -> count' x xs == count' x ys) xs
     where
-      count x = length . filter (== x)
+      count' x = length . filter (== x)
 
 type ScaledPauli = Scaled PauliExpr
 type ScaledTensor a = Scaled (Tensor a)
