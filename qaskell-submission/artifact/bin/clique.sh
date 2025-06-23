@@ -9,4 +9,4 @@ echo "Clique Classical:"
 cabal run qaskell -- clique classical
 
 echo "Clique Quantum:"
-cabal run qaskell -- clique quantum | python3 scripts/${target}/parser.py > scripts/${target}/clique.py && python3 scripts/${target}/clique.py
+cabal run qaskell -- clique quantum | python3 scripts/${target}/parser.py > scripts/${target}/clique.py is_clique && python3 scripts/${target}/clique.py

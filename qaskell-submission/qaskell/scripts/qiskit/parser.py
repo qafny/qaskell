@@ -91,6 +91,8 @@ with open('scripts/qiskit/template.py', 'r') as f:
     template = f.read()
 
 template = template.replace('n_qubits = 3', f'n_qubits = {len(qubit_labels)}')
+if len(sys.argv) == 2:
+    template = template.replace('is_clique = False', 'is_clique = True')
 template = template.replace('# INSERT_RZZ_GATES_HERE', '\n'.join(generated_lines))
 
 # Output final script
