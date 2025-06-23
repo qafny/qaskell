@@ -119,6 +119,25 @@ minimumsFst [] = []
 minimumsFst xs = filter ((==) minfst . fst) xs
     where minfst = minimum (map fst xs)
 
+count :: (Functor t, Foldable t) =>
+  (a -> Bool) ->
+  t a ->
+  Int
+count p = sum . fmap go
+  where
+    go x =
+      if p x
+      then 1
+      else 0
+
+hasNOnes :: (Num b, Eq b, Functor t, Foldable t) =>
+  Int ->
+  t (a, b) ->
+  Bool
+hasNOnes n s = count go s == n
+  where
+    go (_, x) = x == 1
+
 solveClassical :: forall t a b c. (Eq (t a), Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t) =>
   (t (a, b) -> Bool) ->
   Program t a b c ->
