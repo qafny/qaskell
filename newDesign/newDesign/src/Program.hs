@@ -58,3 +58,9 @@ data OrderedGraph t index value =
 -- knapsack problem: 2 constraints, Stay with view 1, and Stay with view 2
 
 -- job sequencing: 2 constraints, Stay with view 1, and Stay with view 2
+
+-- Hamiltonian circle: 2 constraints, Stay with view 2
+-- another direction, use swap operation to swap vertex ranks in the circle, having one Move with view 2
+
+-- Travel salesman: 3 constraints, Stay with view 2
+-- another direction, use swap operation to swap vertex ranks in the circle, having one Move with view 2
