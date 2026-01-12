@@ -64,3 +64,7 @@ data OrderedGraph t index value =
 
 -- Travel salesman: 3 constraints, Stay with view 2
 -- another direction, use swap operation to swap vertex ranks in the circle, having one Move with view 2
+
+-- Tree Problems: (minimum spinning tree) 1 constraints, Stay with view 2
+-- Tree problem can utilize the fact that a connected tree much have n-1 edges for n vertices.
+-- We can prepare a superposition with hamming weight of n-1, and use the swap initial hamiltonian in graph coloring.
