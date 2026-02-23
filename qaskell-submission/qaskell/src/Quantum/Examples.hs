@@ -90,6 +90,83 @@ exactCover cover =
         _ -> error "exactCover: Expected exactly three choices"
     }
 
+hamiltonianCycle :: [(Int, Int)] -> Program [] Int Int Int
+hamiltonianCycle edges =
+  let 
+    cities = getNodes edges
+    numNodes = length cities
+  in 
+  Program
+    { choices = [0 .. numNodes-1]
+    , struct = cities
+    , view = 2
+    , constraints = \case
+        [(cityA, rankA), (cityB, rankB)] ->
+           let
+             uniquenessPenalty = 
+              if rankA == rankB 
+                then 10 
+                else 0
+             
+             diff = abs (rankA - rankB)
+             isAdjacentRank = diff == 1 || diff == (numNodes - 1)
+             
+             connectivityPenalty =
+               if isAdjacentRank
+               then if (cityA, cityB) `elem` edges 
+                    then 0 
+                    else 5
+               else 0
+           
+           in uniquenessPenalty + connectivityPenalty
+        _ -> error "hamiltonianCycle: Expected exactly two choices"
+    }
+
+
+tsp :: [(Int, Int, Int)] -> Program [] Int Int Int
+tsp weightedEdges =
+  let
+    cities = nub $ concatMap (\(u, v, _) -> [u, v]) weightedEdges
+    numNodes = length cities
+
+    getWeight a b = 
+      case find (\(u, v, _) -> (u == a && v == b) || (u == b && v == a)) weightedEdges of
+        Just (_, _, w)  -> Just w
+        Nothing -> Nothing
+
+  in 
+  Program
+    { choices = [0 .. numNodes - 1]   
+    , struct = cities                 
+    , view = 2                        
+    , constraints = \case
+        [(cityA, rankA), (cityB, rankB)] ->
+          let
+            
+            uniquenessPenalty = 
+              if rankA == rankB 
+              then 10000 
+              else 0
+
+            
+            diff = abs (rankA - rankB)
+            isAdjacent = diff == 1 || diff == (numNodes - 1)
+            
+            travelCost =
+              if isAdjacent
+              then
+                case getWeight cityA cityB of
+                  Just w  -> w     
+                  Nothing -> 2000  
+              else 0
+
+          in uniquenessPenalty + travelCost
+
+        _ -> error "tsp: Expected exactly two choices"
+    }
+
+
+
 infixr :->
 data Type = IntType | Type :-> Type
   deriving (Show, Eq, Ord)

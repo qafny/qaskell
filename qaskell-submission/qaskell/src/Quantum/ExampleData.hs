@@ -12,6 +12,17 @@ symmetricClosure origList = go origList
       then (x,y) : (y,x) : go rest
       else (x,y) : go rest
 
+
+--  A --- B    
+--  |    /     
+--  |   /      
+--  |  /       
+--  | /        
+--  C          
+
+graphTriangle :: [(Int, Int)]
+graphTriangle = [(1, 2), (1, 3), (2, 3)]
+
 --  A --- B    D
 --  |    /     |
 --  |   /      |
