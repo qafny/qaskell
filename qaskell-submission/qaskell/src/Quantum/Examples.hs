@@ -116,7 +116,7 @@ hamiltonianCycle edges =
                then if (cityA, cityB) `elem` edges 
                     then 0 
                     else 5
-               else 0
+               else 5
            
            in uniquenessPenalty + connectivityPenalty
         _ -> error "hamiltonianCycle: Expected exactly two choices"
@@ -158,7 +158,7 @@ tsp weightedEdges =
                 case getWeight cityA cityB of
                   Just w  -> w     
                   Nothing -> 2000  
-              else 0
+              else 2000
 
           in uniquenessPenalty + travelCost
 

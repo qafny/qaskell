@@ -19,9 +19,24 @@ symmetricClosure origList = go origList
 --  |  /       
 --  | /        
 --  C          
-
 graphTriangle :: [(Int, Int)]
 graphTriangle = [(1, 2), (1, 3), (2, 3)]
+
+--  A --10-- B    
+--  |       /     
+--  |      /      
+-- 20    15       
+--  |    /        
+--  |   /
+--  |  /
+--  | /
+--  C    
+weightedGraph :: [(Int, Int, Int)]
+weightedGraph = 
+  [ (1, 2, 10)
+  , (2, 3, 15)
+  , (1, 3, 20)
+  ]
 
 --  A --- B    D
 --  |    /     |
