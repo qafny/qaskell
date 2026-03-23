@@ -107,10 +107,31 @@ pauliX = (2 >< 2)
          [ 0 :+ 0, 1 :+ 0
          , 1 :+ 0, 0 :+ 0 ]
 
+pauliY :: Matrix (Complex Double)
+pauliY = (2 >< 2)
+         [ 0 :+ 0, 0 :+ (-1)
+         , 0 :+ 1, 0 :+ 0 ]
+
 pauliZ :: Matrix (Complex Double)
 pauliZ = (2 >< 2)
          [ 1 :+ 0, 0 :+ 0
          , 0 :+ 0, (-1) :+ 0 ]
+
+-- a(j)  = (X(j) + iY(j))/2
+annihilationOp :: Matrix (Complex Double)
+annihilationOp = scale (0.5 :+ 0) (pauliX + scale (0 :+ 1) pauliY)
+
+-- a*(j) = (X(j) - iY(j))/2
+creationOp :: Matrix (Complex Double)
+creationOp = scale (0.5 :+ 0) (pauliX + scale (0 :+ (-1)) pauliY)
+
+-- XY swap between qubits i,j
+
+xySwapOp :: Int -> Int -> Int -> Matrix (Complex Double)
+xySwapOp n i j =
+  let adag_a = operatorOn n [(i, creationOp), (j, annihilationOp)]
+      a_adag = operatorOn n [(i, annihilationOp), (j, creationOp)]
+  in adag_a + a_adag
 
 -- | Given a list of (qubit index, operator) pairs, build the operator on n qubits.
 --   For qubits not mentioned in the list, the identity is applied.
@@ -120,6 +141,30 @@ operatorOn n ops = foldl1 kronecker [ opFor i | i <- [0 .. n - 1] ]
     opFor i = case lookup i ops of
                 Just op -> op
                 Nothing -> id2
+
+
+
+-- Create a d x d matrix to move from state |y> to state |x>
+transitionMatrix :: Int -> Int -> Int -> Matrix (Complex Double) 
+transitionMatrix d x y = fromLists
+  [ [ if r == x && c == y then 1.0 :+ 0.0 else 0.0 :+ 0.0 | c <- [0 .. d - 1] ]
+  | r <- [0 .. d - 1] ]
+
+-- Generalized version of 'operatorOn' to support any dimension 'd'
+operatorOnD :: Int -> Int -> [(Int, Matrix (Complex Double))] -> Matrix (Complex Double)
+operatorOnD d n ops =
+    let idMatrix = cmap (:+ 0.0) (ident d) 
+        matrices = [ maybe idMatrix id (lookup k ops) | k <- [0 .. n - 1] ]
+    in foldl1 kronecker matrices
+
+-- Generalized version of 'SwapOp', swaps any position i and position j in a d-dimensional system
+generalizedSwapOp :: Int -> Int -> Int -> Int -> Matrix (Complex Double)
+generalizedSwapOp d n i j =
+  let adag_a = sum [ operatorOnD d n [(i, transitionMatrix d x y), (j, transitionMatrix d y x)]
+                   | x <- [0 .. d - 1], y <- [0 .. d - 1], x /= y ]
+  in adag_a
+
+
 
 -- | H_initial = – ∑ X_i.
 --   The minus sign ensures that the ground state of H_initial is |+>^{⊗n},
