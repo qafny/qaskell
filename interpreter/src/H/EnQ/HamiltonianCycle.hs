@@ -32,9 +32,27 @@ solveClassical graph = filter (isHamiltonianCycle graph) allPaths
 -- QUANTUM SOLVER
 
 -- Construct the Initial Hamiltonian H_B
+-- initialHamiltonian :: Int -> Matrix (Complex Double)
+-- initialHamiltonian n =
+--   scale ((-1) :+ 0) $ sum [ generalizedSwapOp n n i j | i <- [0 .. n - 1], j <- [i + 1 .. n - 1] ]
+
+
+
+-- Construct the Initial Hamiltonian H_B (with valid permutations)
 initialHamiltonian :: Int -> Matrix (Complex Double)
 initialHamiltonian n =
-  scale ((-1) :+ 0) $ sum [ generalizedSwapOp n n i j | i <- [0 .. n - 1], j <- [i + 1 .. n - 1] ]
+  let 
+      nSwap = scale ((-1) :+ 0) $ 
+          sum [ generalizedSwapOp n n i j | i <- [0 .. n - 1], j <- [i + 1 .. n - 1] ]
+
+      -- +100 penalty if City u and City v claim the exact same rank r
+      penaltyTerms = scale (100.0 :+ 0) $ 
+          sum [ operatorOnD n n [(u, transitionMatrix n r r), (v, transitionMatrix n r r)] 
+              | u <- [0 .. n - 1], v <- [u + 1 .. n - 1], r <- [0 .. n - 1] ]
+              
+  in nSwap + penaltyTerms
+
+
 
 -- Construct the Problem Hamiltonian H_P
 problemHamiltonian :: Matrix Double -> Matrix (Complex Double)
@@ -53,16 +71,24 @@ problemHamiltonian graph =
         in operatorOnD n n [(u, detectorU), (v, detectorV)]
 
 -- Initial State: Uniform superposition of all VALID permutations
+-- prepareInitialState :: Int -> Vector (Complex Double)
+-- prepareInitialState n = fromList $ map normalize [0 .. dim - 1]
+--   where
+--     dim = n ^ n
+--     states = [if isValidPermutation (toBase n n i) then 1 :+ 0 else 0 :+ 0 | i <- [0 .. dim - 1]]
+--     norm = sqrt $ sum [magnitude x ^ 2 | x <- states]
+--     normalize i = states !! i / (norm :+ 0)
+
+-- isValidPermutation :: [Int] -> Bool
+-- isValidPermutation xs = length (nub xs) == length xs
+
+-- Initial State: Uniform superposition of ALL states
 prepareInitialState :: Int -> Vector (Complex Double)
-prepareInitialState n = fromList $ map normalize [0 .. dim - 1]
+prepareInitialState n = fromList $ replicate dim norm
   where
     dim = n ^ n
-    states = [if isValidPermutation (toBase n n i) then 1 :+ 0 else 0 :+ 0 | i <- [0 .. dim - 1]]
-    norm = sqrt $ sum [magnitude x ^ 2 | x <- states]
-    normalize i = states !! i / (norm :+ 0)
-
-isValidPermutation :: [Int] -> Bool
-isValidPermutation xs = length (nub xs) == length xs
+    -- Every single state has an equal starting probability of 1 / sqrt(Total States)
+    norm = (1.0 :+ 0.0) / (sqrt (fromIntegral dim) :+ 0.0)
 
 toBase :: Int -> Int -> Int -> [Int]
 toBase d len x = 
@@ -81,11 +107,11 @@ solveHC = do
   let n = 4
   
   -- Square with one diagonal
-  -- let graph = (n >< n) 
-  --       [ 0, 1, 1, 1
-  --       , 1, 0, 1, 0
-  --       , 1, 1, 0, 1
-  --       , 1, 0, 1, 0 :: Double ]
+  let graph = (n >< n) 
+        [ 0, 1, 1, 1
+        , 1, 0, 1, 0
+        , 1, 1, 0, 1
+        , 1, 0, 1, 0 :: Double ]
   
   -- Complete graph
   -- let graph = (n >< n) 
@@ -95,11 +121,11 @@ solveHC = do
   --       , 1, 1, 1, 0 :: Double ]
 
   -- Star graph (no Hamiltonian Cycle exists)
-  let graph = (n >< n) 
-        [ 0, 1, 1, 1
-        , 1, 0, 0, 0
-        , 1, 0, 0, 0
-        , 1, 0, 0, 0 :: Double ]
+  -- let graph = (n >< n) 
+  --       [ 0, 1, 1, 1
+  --       , 1, 0, 0, 0
+  --       , 1, 0, 0, 0
+  --       , 1, 0, 0, 0 :: Double ]
 
   putStrLn $ "n = " ++ show n
   putStrLn "Adjacency Matrix:"
