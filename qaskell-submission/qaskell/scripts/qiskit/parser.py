@@ -1,15 +1,11 @@
 import sys
 import re
 
-# Read input from stdin
 pauli_string = sys.stdin.read().strip()
 
-# Match terms like: 0.25 (Z(a) @ I(b) @ Z(c))
-#term_pattern = r'([+-]?\d+(?:\.\d*)?)\s*\(\s*((?:[IXYZ]\(\w\)\s*@\s*)*[IXYZ]\(\w\))\s*\)'
 term_pattern = r'([+-]?\d+(?:\.\d*)?(?:e[+-]?\d+)?)\s*\(\s*((?:[IXYZ]\(\w\)\s*@\s*)*[IXYZ]\(\w\))\s*\)'
 matches = re.findall(term_pattern, pauli_string)
 
-# Parse ops and collect all qubit labels
 parsed_terms = []
 qubit_labels = set()
 
@@ -19,17 +15,14 @@ for coeff, term in matches:
     for _, label in ops:
         qubit_labels.add(label)
 
-# Assign integer indices to qubit labels
 qubit_labels = sorted(qubit_labels)
 label_to_index = {label: idx for idx, label in enumerate(qubit_labels)}
 
-# Process each term
 generated_lines = []
 for coeff, ops in parsed_terms:
     if all(op == 'I' for op, _ in ops):
         continue
     
-    # Map ops to indices
     op_index_pairs = [(op, label_to_index[q]) for op, q in ops]
     indices = [i for op, i in op_index_pairs]
     ops_only = [op for op, _ in op_index_pairs]
@@ -41,7 +34,6 @@ for coeff, ops in parsed_terms:
 
     if all(p == 'Z' for (_, p) in non_identity):
 
-        # Map (index in qubit list, position in ops list)
         ops_with_indices = [(label_to_index[q], p) for p, q in ops]
 
         current_run = []
@@ -57,30 +49,26 @@ for coeff, ops in parsed_terms:
         if current_run:
             all_runs.append(current_run)
 
-        # Process each Z run independently
         for run in all_runs:
-            qubit_indices = [idx for (_, idx) in run]
+            qubit_indices = sorted([idx for (_, idx) in run])
 
             if len(qubit_indices) == 1:
                 i = qubit_indices[0]
-                generated_lines.append(f"    qc.rz(-2 * gamma * {coeff}, {i})  # from: {ops}")
+                generated_lines.append(f"    qc.rz(-2 * gamma * {coeff} * dt, {i})")
 
-            elif len(qubit_indices) == 2:
-                i, j = qubit_indices
-                generated_lines.append(f"    qc.rzz(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
+            else:
+                for i in range(len(qubit_indices) - 1):
+                    ctrl = qubit_indices[i]
+                    tgt = qubit_indices[i + 1]
+                    generated_lines.append(f"    qc.cx({ctrl}, {tgt})")
 
-            elif len(qubit_indices) > 2:
-                qubit_indices = sorted(qubit_indices)
-                ladder_pairs = list(zip(qubit_indices[:-1], qubit_indices[1:]))
+                last_qubit = qubit_indices[-1]
+                generated_lines.append(f"    qc.rz(-2 * gamma * {coeff} * dt, {last_qubit})")
 
-                for a, b in ladder_pairs[:-1]:
-                    generated_lines.append(f"    qc.cx({a}, {b})")
-
-                i, j = ladder_pairs[-1]
-                generated_lines.append(f"    qc.rzz(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
-
-                for a, b in reversed(ladder_pairs[:-1]):
-                    generated_lines.append(f"    qc.cx({a}, {b})")
+                for i in range(len(qubit_indices) - 2, -1, -1):
+                    ctrl = qubit_indices[i]
+                    tgt = qubit_indices[i + 1]
+                    generated_lines.append(f"    qc.cx({ctrl}, {tgt})")
 
     else:
         raise ValueError(f"Unsupported term: {ops}")
