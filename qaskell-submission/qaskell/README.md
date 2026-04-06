@@ -1,28 +1,17 @@
-# Building
+# Changes
 
-In order to build the project, run `cabal build`.
+1. Fixed bugs in Python scripts that parameters are not scaled by time interpolation
 
-# Testing
+2. Added sorting program `sortP` in `Examples.hs`,  the generated qiskit circuits does not solve sorting, currently under investigation
 
-To test out example programs, first run `cabal repl`. Then, run the following three commands:
+3. Added module `Analysis.hs` to print out program info such as energy table, optimal solutions, etc. The `preprocess` function extend programs that has less than 2^n choices (illegal states will be created by binary encoding) with penalties targeting illegal states
 
-    ghci> import Quantum.Program
-    ghci> import Quantum.Examples
-    ghci> import Quantum.ExampleData
+4. Added commands in Main
 
-Then, you can test out the quantum compilation like this:
+# Quick Run
 
-    ghci> solveQuantum (eqSum [1,2,3])
+for `solveQuantum $ preprocess (sortP [2,1,3])`:
 
-The classical interpretation can be run using:
+cabal run qaskell -- sort3 quantum | python3 scripts/qiskit/parser.py > sort213.py
 
-    ghci> solveClassical (eqSum [1,2,3])
-
-The examples consist of `eqSum`, `graphColoring`, `cliqueFinding`, `exactCover`, and `inferType`.
-
-Example graphs can be found in `src/Quantum/ExampleData.hs`.
-
-For example, the quantum compilation for graph coloring with two colors on `graph1` can be run like this:
-
-    ghci> solveQuantum (graphColoring 2 graph1)
 
