@@ -45,7 +45,7 @@ newtype Tensor a = Tensor [a]
   deriving (Functor, Eq, Foldable, Traversable, Ord)
 
 newtype Summed a = Summed [a]
-  deriving (Functor, Applicative)
+  deriving (Functor, Applicative, Foldable, Traversable)
 
 instance Eq a => Eq (Summed a) where
   Summed xs == Summed ys =

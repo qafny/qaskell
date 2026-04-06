@@ -25,6 +25,27 @@ import Quantum.DistinctDepthN
 
 import Debug.Trace
 
+sortP ::
+  [Int] -> Program [] Int Int Int
+sortP inputList =
+  Program
+    { choices = [0.. (length inputList) -1]
+    , struct = inputList
+    , view = 2
+    , constraints = \case
+    [(a, choiceA), (b, choiceB)] ->
+      if a /= b && choiceA == choiceB then 10
+       else
+        if (a > b && choiceA <= choiceB) || (a < b && choiceA >= choiceB)
+          then 3
+            -- let msg = show a ++ "-" ++ show choiceA ++ " " ++ show b ++ "-" ++ show choiceB
+            --  in trace msg 1
+          else 0
+    _ -> error "eqSum: Expected exactly two choices"
+    }
+
+
+
 -- ghci> solveQuantum (eqSum [1, 2])
 -- ...
 eqSum ::

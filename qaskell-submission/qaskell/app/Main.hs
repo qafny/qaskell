@@ -6,6 +6,8 @@ import Quantum.Examples
 import Quantum.ExampleData
 import qualified Quantum.CtxInferType as CtxInfer
 
+import Quantum.Analysis (preprocess)
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -15,6 +17,13 @@ main = do
 
 runExample :: String -> String -> IO ()
 runExample example mode = case (example, mode) of
+  
+  ("sort3", "classical" ) -> print $ solveClassical (const True) $ preprocess (sortP [2,1,3])
+  ("sort3", "quantum" )   -> print $ solveQuantum $ preprocess (sortP [2,1,3])
+
+  --("sort4", _ )    -> print $ solveQuantum (sortP [2,1,3,4])   
+
+  
   ("eqsum", "quantum")    -> print $ solveQuantum (eqSum [1,3,2])
   ("eqsum", "classical")  -> print $ solveClassical (const True) (eqSum [1,3,2])
 
