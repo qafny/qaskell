@@ -23,9 +23,18 @@ runExample example mode = case (example, mode) of
 
   ("clique", "quantum")   -> print $ solveQuantum (cliqueFinding graph1)
   ("clique", "classical") -> print $ solveClassical (hasNOnes 3) (cliqueFinding graph1)
+
+  ("k-clique", "quantum")   -> print $ fullQuantum (cliqueFinding graph1)
+  ("k-clique", "classical") -> print $ solveClassical (hasNOnes 3) (cliqueFinding graph1)
   
   ("infer", "quantum")    -> print $ solveQuantum (inferType [("x", IntType), ("y", IntType)] exprFull)
   ("infer", "classical")  -> print $ solveClassical (const True) (inferType [("x", IntType), ("y", IntType)] exprFull)
+
+  ("hamiltonian", "quantum")   -> print $ fullQuantum (hamiltonianCycle graphTriangle)
+  ("hamiltonian", "classical") -> print $ solveClassical (const True) (hamiltonianCycle graphTriangle)
+
+  ("tsp", "quantum")   -> print $ solveQuantum (tsp weightedGraph)
+  ("tsp", "classical") -> print $ solveClassical (const True) (tsp weightedGraph)
 
     -- The previous representation: --
   ("ctx-infer1", "quantum")    -> print $ solveQuantum (CtxInfer.inferType CtxInfer.expr1)

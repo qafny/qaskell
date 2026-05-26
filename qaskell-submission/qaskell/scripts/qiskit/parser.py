@@ -82,6 +82,26 @@ for coeff, ops in parsed_terms:
                 for a, b in reversed(ladder_pairs[:-1]):
                     generated_lines.append(f"    qc.cx({a}, {b})")
 
+    elif all(p == 'X' for (_, p) in non_identity):
+        if len(non_identity) == 1:
+            i = non_identity[0][0]
+            generated_lines.append(f"    qc.rx(-2 * gamma * {coeff}, {i})  # from: {ops}")
+        elif len(non_identity) == 2:
+            i, j = non_identity[0][0], non_identity[1][0]
+            generated_lines.append(f"    qc.rxx(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
+        else:
+            raise ValueError(f"Unsupported X tensor size: {ops}")
+            
+    elif all(p == 'Y' for (_, p) in non_identity):
+        if len(non_identity) == 1:
+            i = non_identity[0][0]
+            generated_lines.append(f"    qc.ry(-2 * gamma * {coeff}, {i})  # from: {ops}")
+        elif len(non_identity) == 2:
+            i, j = non_identity[0][0], non_identity[1][0]
+            generated_lines.append(f"    qc.ryy(-2 * gamma * {coeff}, {i}, {j})  # from: {ops}")
+        else:
+            raise ValueError(f"Unsupported Y tensor size: {ops}")
+
     else:
         raise ValueError(f"Unsupported term: {ops}")
 
@@ -92,7 +112,15 @@ with open('scripts/qiskit/template.py', 'r') as f:
 
 template = template.replace('n_qubits = 3', f'n_qubits = {len(qubit_labels)}')
 if len(sys.argv) == 2:
-    template = template.replace('is_clique = False', 'is_clique = True')
+    flag = sys.argv[1]
+    if flag == 'is_clique':
+        template = template.replace('is_clique = False', 'is_clique = True')
+    elif flag == 'is_k_clique':
+        template = template.replace('is_k_clique = False', 'is_k_clique = True')
+    elif flag == 'is_hamiltonianCycle':
+        template = template.replace('is_hamiltonianCycle = False', 'is_hamiltonianCycle = True')
+    elif flag == 'is_tsp':
+        template = template.replace('is_tsp = False', 'is_tsp = True')
 template = template.replace('# INSERT_RZZ_GATES_HERE', '\n'.join(generated_lines))
 
 # Output final script

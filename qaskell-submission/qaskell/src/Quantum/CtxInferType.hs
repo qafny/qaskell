@@ -265,6 +265,66 @@ inferType expr =
           _ -> undefined
     }
 
+-- inferType :: MaybeExpr () -> Program MaybeExpr () Type Int
+-- inferType expr =
+--   Program [ Stay
+--     { choices = map nAryIntType [0..length expr-1]
+--     , struct = makeBlankExpr expr
+--     , view = 2
+--     , constraints = maybeToEnergy .
+--         \case
+--           EmptyM -> Nothing
+--           VarM x tyInCtx -> do
+--             let aTy = case lookup x (ctx tyInCtx) of
+--                         Just (_, ty') -> ty'
+--                         Nothing -> IntType
+
+--             guard (aTy == snd (ty tyInCtx))
+--             pure aTy
+
+--           NumM _ tyInCtx -> do
+--             let ((), aTy) = ty tyInCtx
+--             guard (aTy == IntType)
+--             pure aTy
+
+--           AppM childrenM tyInCtx -> do
+--             let ((), overallTy) = ty tyInCtx
+
+--             (a, b) <- childrenM
+--             let aTyInCtx = getAnn a
+--                 bTyInCtx = getAnn b
+
+--             let ((), aTy) = ty aTyInCtx
+--                 ((), bTy) = ty bTyInCtx
+
+--             case aTy of
+--               srcTy :-> tgtTy -> do
+--                 guard (srcTy == bTy)
+--                 guard (tgtTy == overallTy)
+--                 pure overallTy
+--               _ -> Nothing
+
+--           LambdaM x paramTy bodyM tyInCtx -> do
+--             let ((), overallTy) = ty tyInCtx
+
+--             body <- bodyM
+
+--             let bodyTyInCtx = getAnn body
+--                 ((), bodyTy) = ty bodyTyInCtx
+
+--             ((), xTy) <- lookup x (ctx bodyTyInCtx)
+--             guard (xTy == paramTy)
+
+--             case overallTy of
+--               srcTy :-> tgtTy -> do
+--                 guard (xTy == srcTy)
+--                 guard (tgtTy == bodyTy)
+--                 pure overallTy
+
+--               _ -> Nothing
+--           _ -> undefined
+--     } ]
+
 nAryIntType :: Int -> Type
 nAryIntType 0 = IntType
 nAryIntType n = IntType :-> nAryIntType (n-1)

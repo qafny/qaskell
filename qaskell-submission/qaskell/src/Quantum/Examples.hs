@@ -26,7 +26,7 @@ import Quantum.DistinctDepthN
 import Debug.Trace
 
 -- ghci> solveQuantum (eqSum [1, 2])
--- ...
+
 eqSum ::
   [Int] -> Program [] Int Int Int
 eqSum inputList =
@@ -42,8 +42,20 @@ eqSum inputList =
     _ -> error "eqSum: Expected exactly two choices"
     }
 
+-- eqSum :: [Int] -> Program [] Int Int Int
+-- eqSum inputList =
+--   Program [ Stay
+--     { choices = [-1, 1]
+--     , struct = inputList
+--     , view = 2
+--     , constraints = \case
+--     [(a, choiceA), (b, choiceB)] ->
+--         (a * choiceA) * (b * choiceB)
+--     _ -> error "eqSum: Expected exactly two choices"
+--     } ]
+
 -- ghci> solveQuantum (graphColoring 2 graph1)
--- ...
+
 graphColoring ::
   Int -> [(Int, Int)] -> Program [] Int Int Int
 graphColoring colorCount edges = 
@@ -58,6 +70,20 @@ graphColoring colorCount edges =
         else 0
       _ -> error "graphColoring: Expected exactly two choices"
     }
+
+-- graphColoring :: Int -> [(Int, Int)] -> Program [] Int Int Int
+-- graphColoring colorCount edges = 
+--   Program [ Stay
+--     { choices = [0..colorCount-1]
+--     , struct = getNodes edges
+--     , view = 2
+--     , constraints = \case
+--       [(a, choiceA), (b, choiceB)] ->
+--         if (a, b) `elem` edges && choiceA == choiceB
+--         then 1
+--         else 0
+--       _ -> error "graphColoring: Expected exactly two choices"
+--     } ]
 
 cliqueFinding ::
   AdjList Int -> Program [] Int Int Int
@@ -74,6 +100,35 @@ cliqueFinding edges =
       _ -> error "cliqueFinding: Expected exactly two choices"
     }
 
+-- cliqueFinding ::
+--   AdjList Int -> Program [] Int Int Int
+-- cliqueFinding edges =
+--   let nodes = getNodes edges in
+--   Program
+--     [ -- Z-Axis Penalties (H_P)
+--       Stay
+--         { choices = [0, 1]
+--         , struct = nodes
+--         , view = 2
+--         , constraints = \case
+--           [(a, choiceA), (b, choiceB)] ->
+--             -- If the edge exists, no penalty.
+--             -- If the edge is missing, apply a penalty ONLY if both nodes are selected (1 * 1 = 1).
+--             if (a, b) `elem` edges
+--             then 0
+--             else choiceA * choiceB
+--           _ -> error "cliqueFinding: Expected exactly two choices"
+--         }
+        
+    -- , -- X-Axis (H_B)
+    --   Swap
+    --     { choices = [0, 1]
+    --     , struct = nodes
+    --     , view = 2
+    --     , rate = -1
+    --     }
+    -- ]    
+
 data Cover a = MkCover { vars :: [a], valuation :: [a] -> Bool }
 
 exactCover :: Cover Int -> Program [] Int Int Int
@@ -89,6 +144,20 @@ exactCover cover =
           else 1
         _ -> error "exactCover: Expected exactly three choices"
     }
+
+-- exactCover :: Cover Int -> Program [] Int Int Int
+-- exactCover cover =
+--   Program [ Stay
+--     { choices = [0, 1],
+--       struct = vars cover,
+--       view = 3,
+--       constraints = \case
+--         [(a, choiceA), (b, choiceB), (c, choiceC)] ->
+--           if valuation cover [a, b, c] && choiceA + choiceB + choiceC == 1
+--           then 0
+--           else 1
+--         _ -> error "exactCover: Expected exactly three choices"
+--     } ]    
 
 hamiltonianCycle :: [(Int, Int)] -> Program [] Int Int Int
 hamiltonianCycle edges =
@@ -121,6 +190,31 @@ hamiltonianCycle edges =
            in uniquenessPenalty + connectivityPenalty
         _ -> error "hamiltonianCycle: Expected exactly two choices"
     }
+
+-- hamiltonianCycle :: [(Int, Int)] -> Program [] Int Int Int
+-- hamiltonianCycle edges =
+--   let 
+--     cities = getNodes edges
+--     numNodes = length cities
+--   in 
+--   Program [ Stay
+--     { choices = [0 .. numNodes-1]
+--     , struct = cities
+--     , view = 2
+--     , constraints = \case
+--         [(cityA, rankA), (cityB, rankB)] ->
+--            let
+--              uniquenessPenalty = if rankA == rankB then 10 else 0
+--              diff = abs (rankA - rankB)
+--              isAdjacentRank = diff == 1 || diff == (numNodes - 1)
+             
+--              connectivityPenalty =
+--                if isAdjacentRank
+--                then if (cityA, cityB) `elem` edges then 0 else 5
+--                else 5
+--            in uniquenessPenalty + connectivityPenalty
+--         _ -> error "hamiltonianCycle: Expected exactly two choices"
+--     } ]
 
 
 tsp :: [(Int, Int, Int)] -> Program [] Int Int Int
@@ -164,6 +258,38 @@ tsp weightedEdges =
 
         _ -> error "tsp: Expected exactly two choices"
     }
+
+-- tsp :: [(Int, Int, Int)] -> Program [] Int Int Int
+-- tsp weightedEdges =
+--   let
+--     cities = nub $ concatMap (\(u, v, _) -> [u, v]) weightedEdges
+--     numNodes = length cities
+
+--     getWeight a b = 
+--       case find (\(u, v, _) -> (u == a && v == b) || (u == b && v == a)) weightedEdges of
+--         Just (_, _, w)  -> Just w
+--         Nothing -> Nothing
+--   in 
+--   Program [ Stay
+--     { choices = [0 .. numNodes - 1]   
+--     , struct = cities                 
+--     , view = 2                        
+--     , constraints = \case
+--         [(cityA, rankA), (cityB, rankB)] ->
+--           let
+--             uniquenessPenalty = if rankA == rankB then 10000 else 0
+--             diff = abs (rankA - rankB)
+--             isAdjacent = diff == 1 || diff == (numNodes - 1)
+            
+--             travelCost =
+--               if isAdjacent
+--               then case getWeight cityA cityB of
+--                      Just w  -> w     
+--                      Nothing -> 2000  
+--               else 2000
+--           in uniquenessPenalty + travelCost
+--         _ -> error "tsp: Expected exactly two choices"
+--     } ]
 
 
 
@@ -412,6 +538,49 @@ inferType ctx expr =
           _ -> undefined
           )
     }
+
+-- inferType :: Ctx Type -> MaybeExpr () -> Program MaybeExpr () Type Int
+-- inferType ctx expr =
+--   Program [ Stay
+--     { choices = map nAryIntType [0..length expr-1]
+--     , struct = expr
+--     , view = 2
+--     , constraints = maybeToEnergy . (inferTypeDebugger $
+--         \case
+--           EmptyM -> Nothing
+--           VarM x ((), ty) -> do
+--             let aTy = case lookup x ctx of
+--                         Just ty' -> ty'
+--                         Nothing -> error $ "Cannot find " ++ show x
+--             guard (aTy == ty)
+--             pure aTy
+
+--           NumM _ ty -> do
+--             let ((), aTy) = ty
+--             guard (aTy == IntType)
+--             pure aTy
+
+--           AppM childrenM ty -> do
+--             let ((), overallTy) = ty
+--             (a, b) <- childrenM
+--             let aTyInCtx = getAnn a
+--                 bTyInCtx = getAnn b
+--             let ((), aTy) = aTyInCtx
+--                 ((), bTy) = bTyInCtx
+--             guard (aTy == bTy :-> overallTy)
+--             pure aTy
+
+--           LambdaM x paramTy bodyM ty -> do
+--             let ((), overallTy) = ty
+--             body <- bodyM
+--             let ((), bodyTy) = getAnn body
+--             xTy <- lookup x ctx
+--             guard (xTy == paramTy)
+--             guard (overallTy == paramTy :-> bodyTy)
+--             pure overallTy
+--           _ -> undefined
+--           )
+--     } ]
 
 nAryIntType :: Int -> Type
 nAryIntType 0 = IntType
