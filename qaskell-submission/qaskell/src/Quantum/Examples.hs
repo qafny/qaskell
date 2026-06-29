@@ -96,7 +96,7 @@ cliqueFinding edges =
       [(a, choiceA), (b, choiceB)] ->
         if (a, b) `elem` edges
         then 0
-        else choiceA * choiceB
+        else 3 * choiceA * choiceB
       _ -> error "cliqueFinding: Expected exactly two choices"
     }
 
@@ -172,11 +172,6 @@ hamiltonianCycle edges =
     , constraints = \case
         [(cityA, rankA), (cityB, rankB)] ->
            let
-             uniquenessPenalty = 
-              if rankA == rankB 
-                then 10 
-                else 0
-             
              diff = abs (rankA - rankB)
              isAdjacentRank = diff == 1 || diff == (numNodes - 1)
              
@@ -184,10 +179,9 @@ hamiltonianCycle edges =
                if isAdjacentRank
                then if (cityA, cityB) `elem` edges 
                     then 0 
-                    else 5
-               else 5
-           
-           in uniquenessPenalty + connectivityPenalty
+                    else 50
+               else 50
+           in connectivityPenalty
         _ -> error "hamiltonianCycle: Expected exactly two choices"
     }
 
@@ -217,7 +211,7 @@ hamiltonianCycle edges =
 --     } ]
 
 
-tsp :: [(Int, Int, Int)] -> Program [] Int Int Int
+tsp :: [(Int, Int, Double)] -> Program [] Int Int Double
 tsp weightedEdges =
   let
     cities = nub $ concatMap (\(u, v, _) -> [u, v]) weightedEdges
@@ -237,10 +231,10 @@ tsp weightedEdges =
         [(cityA, rankA), (cityB, rankB)] ->
           let
             
-            uniquenessPenalty = 
-              if rankA == rankB 
-              then 10000 
-              else 0
+            -- uniquenessPenalty = 
+            --   if rankA == rankB 
+            --   then 10000 
+            --   else 0
 
             
             diff = abs (rankA - rankB)
@@ -251,10 +245,11 @@ tsp weightedEdges =
               then
                 case getWeight cityA cityB of
                   Just w  -> w     
-                  Nothing -> 2000  
-              else 2000
+                  Nothing -> 1000.0
+              else 0.0
 
-          in uniquenessPenalty + travelCost
+          -- in uniquenessPenalty + travelCost
+          in travelCost
 
         _ -> error "tsp: Expected exactly two choices"
     }
@@ -291,7 +286,28 @@ tsp weightedEdges =
 --         _ -> error "tsp: Expected exactly two choices"
 --     } ]
 
+type Triplet = (Int, Int, Int, Double)
 
+threeDimensionalMatching :: [Triplet] -> Program [] Triplet Int Double
+threeDimensionalMatching triplets =
+  let 
+    numTriplets = length triplets
+    pairShare = if numTriplets > 1 then fromIntegral (numTriplets - 1) else 1.0
+  in Program
+    { choices = [0, 1]
+    , struct = triplets
+    , view = 2
+    , constraints = \case
+      [(tA@(x1, y1, z1, wA), choiceA), (tB@(x2, y2, z2, wB), choiceB)] ->
+        let
+          reward = ((wA * fromIntegral choiceA) + (wB * fromIntegral choiceB)) / pairShare
+          overlap = x1 == x2 || y1 == y2 || z1 == z2
+          penalty = if tA /= tB && overlap
+                    then 5000.0 * fromIntegral (choiceA * choiceB)
+                    else 0.0
+        in penalty - reward
+      _ -> error "threeDimensionalMatching: Expected exactly two choices"
+    }
 
 infixr :->
 data Type = IntType | Type :-> Type

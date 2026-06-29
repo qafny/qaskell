@@ -617,7 +617,51 @@ fresh = do
   pure x
 
 -- Initial Hamiltonian using Swaps
-swapHamiltonian :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Traversable t, Foldable t) =>
+-- swapHamiltonian :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Traversable t, Foldable t) =>
+--   Program t a b c ->
+--   Summed (Scaled (Tensor PauliExpr))
+-- swapHamiltonian prog =
+--    let
+--       varStruct = runFresh (genChoices (struct prog))
+--       pairs = distinctNTuples 2 varStruct
+--       d = neededBitSize (length (choices prog))
+--       r = (-1.0) :+ 0.0
+
+--       buildSwap tuple =
+--         let vars = toList tuple
+--         in if length vars == 2
+--            then let qA = var (vars !! 0) * d
+--                     qB = var (vars !! 1) * d
+--                 in fmap (scale r) (generalizedTransferOp d qA qB 1)
+--            else error "swapHamiltonian requires view = 2 internally"
+--    in joinSummed $ Summed (map buildSwap pairs)
+
+
+-- trying a bitwise swap hamiltonian for hc
+bitwiseXYMixer :: Int -> VarId -> VarId -> Summed (Scaled (Tensor PauliExpr))
+bitwiseXYMixer d startA startB =
+  let terms = concat [ [ Scale (1.0 :+ 0.0) (Tensor [X (startA + j), X (startB + j)])
+                       , Scale (1.0 :+ 0.0) (Tensor [Y (startA + j), Y (startB + j)])
+                       ]
+                     | j <- [0 .. d - 1] ]
+  in Summed terms
+
+qubitSwap :: VarId -> VarId -> Summed (Scaled (Tensor PauliExpr))
+qubitSwap qA qB = Summed
+  [ Scale (0.5 :+ 0.0) (Tensor [I qA, I qB])
+  , Scale (0.5 :+ 0.0) (Tensor [X qA, X qB])
+  , Scale (0.5 :+ 0.0) (Tensor [Y qA, Y qB])
+  , Scale (0.5 :+ 0.0) (Tensor [Z qA, Z qB])
+  ]
+
+-- replacing the previous bitwise swap with a generalized swap
+registerSwap :: Int -> VarId -> VarId -> Summed (Scaled (Tensor PauliExpr))
+registerSwap d startA startB =
+  let swaps = [ qubitSwap (startA + j) (startB + j) | j <- [0 .. d - 1] ]
+  in foldl1 multOp swaps
+
+-- Initial Hamiltonian using Swaps AND Uniqueness
+swapHamiltonian :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t, Foldable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))
 swapHamiltonian prog =
@@ -625,16 +669,45 @@ swapHamiltonian prog =
       varStruct = runFresh (genChoices (struct prog))
       pairs = distinctNTuples 2 varStruct
       d = neededBitSize (length (choices prog))
-      r = (-1.0) :+ 0.0
+      rSwap = (-1.0) :+ 0.0
 
       buildSwap tuple =
         let vars = toList tuple
         in if length vars == 2
            then let qA = var (vars !! 0) * d
                     qB = var (vars !! 1) * d
-                in fmap (scale r) (generalizedTransferOp d qA qB 1)
+                in fmap (scale rSwap) (registerSwap d qA qB)
            else error "swapHamiltonian requires view = 2 internally"
-   in joinSummed $ Summed (map buildSwap pairs)
+
+      -- buildSwap tuple =
+      --   let vars = toList tuple
+      --   in if length vars == 2
+      --      then let qA = var (vars !! 0) * d
+      --               qB = var (vars !! 1) * d
+      --           in fmap (scale rSwap) (generalizedTransferOp d qA qB 1)
+      --      else error "swapHamiltonian requires view = 2 internally"
+
+      Summed hb_swap = joinSummed $ Summed (map buildSwap pairs)
+
+      -- Build the Uniqueness Penalty 
+      uniqProg :: Program t a b Double
+      uniqProg = Program
+         { choices = choices prog
+         , struct = struct prog
+         , view = 2
+         , constraints = \tuple ->
+             let pairsList = toList tuple
+             in if length pairsList == 2
+                then let (_, rankA) = pairsList !! 0
+                         (_, rankB) = pairsList !! 1
+                     in if rankA == rankB then 1000.0 else 0.0
+                else 0.0
+         }
+
+      Summed hp_uniq = solveQuantum uniqProg
+
+   in Summed (hp_uniq ++ hb_swap)
+  -- in Summed hb_swap
 
 -- Summation of X operators for all physical qubits in the system
 uniformHamiltonian :: Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
@@ -668,7 +741,7 @@ brokenHamiltonian totalChoiceCount vars =
 --       Summed hb = swapHamiltonian prog
 --   in Summed (hp ++ hb)
 
--- | Combines H_P with your choice of Mixing Hamiltonian
+-- | Combines H_P with our choice of Hamiltonian
 fullQuantum :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Real c, Traversable t, Foldable t) =>
   Program t a b c ->
   Summed (Scaled (Tensor PauliExpr))

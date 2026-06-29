@@ -7,13 +7,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 from dicke_states import dicke_state
+from fisher_yates import QuantumFisherYatesShuffle 
+from qiskit import AncillaRegister
 
-gamma = 0.5
+gamma = 0.2
 beta  = 0.1
 n_qubits = 3
 
-trotter_steps = 10
-T = 1.0
+trotter_steps = 100
+T = 4
+# try 2 or 4
+
 
 qr = QuantumRegister(n_qubits)
 cr = ClassicalRegister(n_qubits, name='cr')
@@ -44,9 +48,39 @@ if is_clique:
                 if j != k:
                     qc.append(RXXGate(4 * gamma / trotter_steps), [j, k])
                     qc.append(RYYGate(4 * gamma / trotter_steps), [j, k])
-# elif is_k_clique:
-#     dicke_circ = dicke_state(n_qubits, k_size, draw=False, barrier=False)
-#     qc.compose(dicke_circ, inplace=True)
+elif is_k_clique:
+    dicke_circ = dicke_state(n_qubits, k_size, draw=False, barrier=False)
+    qc.compose(dicke_circ, inplace=True)
+elif is_hamiltonianCycle or is_tsp:               
+    # Dynamically determine N (cities) based on total allocated qubits
+    elements_count = 0
+    for i in range(1, n_qubits + 1):
+        if i * math.ceil(math.log2(i)) == n_qubits:
+            elements_count = i
+            break
+            
+    if elements_count == 0:
+        raise ValueError(f"Could not factor n_qubits={n_qubits} into N * ceil(log2(N))")
+        
+    element_length = math.ceil(math.log2(elements_count))
+    input_values = list(range(elements_count))
+    
+    # 1. Classical Initialization: Load |0, 1, ..., N-1>
+    for m, input_val in enumerate(input_values):
+        input_val_in_binary = bin(input_val)[2:].zfill(element_length)
+        for i, bit in enumerate(input_val_in_binary[::-1]):
+            if bit == '1':
+                qc.x(m * element_length + i)
+                
+    # 2. Set up ancillas and compose the Fisher-Yates Shuffler
+    shuffler = QuantumFisherYatesShuffle(elements_count, element_length)
+    num_ancillas = shuffler.num_qubits - (elements_count * element_length)
+    
+    anc = AncillaRegister(num_ancillas, 'anc')
+    qc.add_register(anc)
+    
+    # Apply the shuffle specifically to the input register and the new ancillas
+    qc.compose(shuffler, qubits=qr[:] + anc[:], inplace=True)
 else:
     for i in range(n_qubits):
         qc.h(i)
