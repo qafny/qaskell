@@ -19,7 +19,7 @@ import Data.Functor
 import Data.Coerce
 
 import Data.Foldable
-import Data.List (partition, intersperse)
+import Data.List (partition, intersperse, subsequences)
 
 import Numeric.LinearAlgebra hiding ((<>), toList, scale, add)
 import Data.Bifunctor (first, second)
@@ -423,7 +423,7 @@ expandKetBra = fmap floatScalars . distr
 -- | +k operator
 addK :: Int -> Int -> VarId -> Summed (Scaled (Tensor PauliExpr))
 addK cSize k base
-  | k <= 0 || k >= cSize = Summed []
+  | k < 0 || k >= cSize = Summed []
   | otherwise =
       let n = neededBitSize cSize
           terms =
@@ -432,10 +432,10 @@ addK cSize k base
             ]
       in combine (joinSummed (Summed terms))
 
--- | -k operator
+-- | -k operator 
 subK :: Int -> Int -> VarId -> Summed (Scaled (Tensor PauliExpr))
 subK cSize k base
-  | k <= 0 || k >= cSize = Summed []
+  | k < 0 || k >= cSize = Summed []
   | otherwise =
       let n = neededBitSize cSize
           terms =
@@ -444,10 +444,49 @@ subK cSize k base
             ]
       in combine (joinSummed (Summed terms))
 
--- shiftK = addK + subK
-shiftK :: Int -> Int -> VarId -> Summed (Scaled (Tensor PauliExpr))
-shiftK cSize k base =
-  combine (joinSummed (Summed [addK cSize k base, subK cSize k base]))
+-- | Compose site-local summed Pauli ops (paper ◦ / ⃝): (Σ a) ◦ (Σ b) = Σ a◦b
+composeSites
+  :: [Summed (Scaled (Tensor PauliExpr))]
+  -> Summed (Scaled (Tensor PauliExpr))
+composeSites [] = Summed []
+composeSites ops =
+  combine $ foldr1 composePair ops
+  where
+    composePair (Summed as) (Summed bs) = Summed
+      [ Scale (k1 * k2) (Tensor (t1 ++ t2))
+      | Scale k1 (Tensor t1) <- as
+      , Scale k2 (Tensor t2) <- bs
+      ]
+
+-- | ⟦{x}∼0⟧_{C,u}: all sites in u shift by the same k
+relationalZeroSites
+  :: Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
+relationalZeroSites _cSize [] = Summed []
+relationalZeroSites cSize sites =
+  combine $ joinSummed $ Summed
+    [ termK k | k <- [0 .. cSize - 1] ]
+  where
+    termK k =
+      combine $ joinSummed $ Summed
+        [ composeSites (map (addK cSize k) sites)
+        , composeSites (map (subK cSize k) sites)
+        ]
+
+-- | ⟦{x}∼0⟧_C: sum relationalZeroSites over all arity-site combinations
+relationalZero
+  :: Int -> Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
+relationalZero cSize arity allSites
+  | arity <= 0 = Summed []
+  | otherwise =
+      combine $ joinSummed $ Summed
+        [ relationalZeroSites cSize u
+        | u <- combinations arity allSites
+        ]
+
+-- | Order-preserving combinations of length n
+combinations :: Int -> [a] -> [[a]]
+combinations n xs =
+  [ ys | ys <- subsequences xs, length ys == n ]
 
 neededBitSize :: Int -> Int
 neededBitSize n = ceiling (logBase 2 (fromIntegral n :: Double))
