@@ -458,14 +458,29 @@ composeSites ops =
       , Scale k2 (Tensor t2) <- bs
       ]
 
+-- | ⟦compare(k,j)⟧: addK(j-k) if k≤j, else subK(k-j)
+compareShift :: Int -> Int -> Int -> VarId -> Summed (Scaled (Tensor PauliExpr))
+compareShift cSize k j site
+  | k <= j   = addK cSize (j - k) site
+  | otherwise = subK cSize (k - j) site
+
+-- | All length-n tuples of distinct values from {0 .. cSize - 1}, in every order.
+distinctChoiceTuples :: Int -> Int -> [[Int]]
+distinctChoiceTuples n cSize = 
+  concatMap permutations (combinations n [0 .. cSize - 1])
+
 -- | All sites in u shift by the same k
 relationalZeroSites
   :: Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
 relationalZeroSites _cSize [] = Summed []
 relationalZeroSites cSize sites =
   combine $ joinSummed $ Summed
-    [ termK k | k <- [0 .. cSize - 1] ]
+    ( termZero : [ termK k | k <- [1 .. cSize - 1] ] )
   where
+    -- Calculate the identity shift exactly once (k=0) 
+    termZero = composeSites (map (addK cSize 0) sites)
+
+    -- Calculate both +k and -k directions for all actual shifts (k > 0)
     termK k =
       combine $ joinSummed $ Summed
         [ composeSites (map (addK cSize k) sites)
@@ -483,18 +498,7 @@ relationalZero cSize arity allSites
         | u <- combinations arity allSites
         ]
 
--- | ⟦compare(k,j)⟧: addK(j-k) if k≤j, else subK(k-j)
-compareShift :: Int -> Int -> Int -> VarId -> Summed (Scaled (Tensor PauliExpr))
-compareShift cSize k j site
-  | k <= j   = addK cSize (j - k) site
-  | otherwise = subK cSize (k - j) site
-
--- | All length-n tuples of distinct values from {0 .. cSize - 1}, in every order.
-distinctChoiceTuples :: Int -> Int -> [[Int]]
-distinctChoiceTuples n cSize = 
-  concatMap permutations (combinations n [0 .. cSize - 1])
-
--- | ⟦{x}∼1⟧_{C,u}: each site shifts by a possibly different amount
+-- | All sites in u shift by distinct (k, j) pairs
 relationalOneSites
   :: Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
 relationalOneSites _cSize [] = Summed []
@@ -516,6 +520,31 @@ relationalOne cSize arity allSites
   | otherwise =
       combine $ joinSummed $ Summed
         [ relationalOneSites cSize u
+        | u <- combinations arity allSites
+        ]
+
+-- | All sites in u shift by (k, j) where j is a permutation of k
+relationalSwapSites
+  :: Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
+relationalSwapSites _cSize [] = Summed []
+relationalSwapSites cSize sites =
+  combine $ joinSummed $ Summed
+    [ composeSites
+        [ compareShift cSize ki ji site
+        | (site, ki, ji) <- zip3 sites kTuple jTuple
+        ]
+    | kTuple <- distinctChoiceTuples (length sites) cSize
+    , jTuple <- permutations kTuple
+    ]
+
+-- | Sum relationalSwapSites over all combinations of desired arity
+relationalSwap
+  :: Int -> Int -> [VarId] -> Summed (Scaled (Tensor PauliExpr))
+relationalSwap cSize arity allSites
+  | arity <= 0 = Summed []
+  | otherwise =
+      combine $ joinSummed $ Summed
+        [ relationalSwapSites cSize u
         | u <- combinations arity allSites
         ]
 
