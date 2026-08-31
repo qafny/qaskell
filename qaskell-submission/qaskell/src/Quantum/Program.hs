@@ -104,13 +104,26 @@ choice (Var x _) = x
 var :: Var a -> VarId
 var (Var _ i) = i
 
-data Program t a b c =
-  Program
-    { choices :: [b]
-    , struct :: t a
-    , view :: Int
-    , constraints :: t (a, b) -> c
-    }
+data RelationalType = Swap | ZeroFlag | OneFlag
+  deriving (Show, Eq)
+
+data DataProgram t a b c = DataProgram
+  { choices :: [b]
+  , struct :: t a
+  , view :: Int
+  , constraints :: t (a, b) -> c
+  }
+
+data RelationalProgram = RelationalProgram
+  { relationalView :: Int
+  , rule :: RelationalType
+  , theta :: Complex Double
+  }
+
+data Program t a b c = Program
+  { dataProgram :: DataProgram t a b c
+  , relationalProgram :: Maybe RelationalProgram
+  }
 
 genChoices :: Traversable t =>
   t a -> Fresh (t (Var a))
@@ -146,19 +159,20 @@ solveClassical :: forall t a b c. (Eq (t a), Ord (t (Var a)), Part (t (Var a)), 
   [(c, t (a, b))]
 solveClassical p prog =
   let
-     varStruct = runFresh (genChoices (struct prog))
+     d = dataProgram prog
+     varStruct = runFresh (genChoices (struct d))
 
-     tuples = distinctNTuples (view prog) varStruct
+     tuples = distinctNTuples (view d) varStruct
 
-     actualTuples = assignChoices (choices prog) tuples
+     actualTuples = assignChoices (choices d) tuples
 
-     encodedChoices = createChoices (choices prog) varStruct
+     encodedChoices = createChoices (choices d) varStruct
 
      results =
           minimumsFst $ filter (p . snd) $ encodedChoices <&>
                   (\ aChoice -> (sum $ actualTuples <&>
                         (\ aTuple -> if isSubList aTuple (toList aChoice)
-                                     then (constraints prog (fmap (first choice) aTuple))
+                                     then (constraints d (fmap (first choice) aTuple))
                                      else 0)
                                   ,fmap (first choice) aChoice) )
                where isSubList xs ys = all (`elem` ys) xs
@@ -169,35 +183,30 @@ solveQuantum :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, 
   Summed (Scaled (Tensor PauliExpr))
 solveQuantum prog =
    let
+      d = dataProgram prog
       varStruct :: t (Var a)
-      varStruct = runFresh (genChoices (struct prog))
+      varStruct = runFresh (genChoices (struct d))
 
       pairs :: [t (Var a)]
-      pairs = distinctNTuples (view prog)
+      pairs = distinctNTuples (view d)
                               varStruct
 
       actualTuples :: [t (Var a, b)]
-      actualTuples = assignChoices (choices prog)
+      actualTuples = assignChoices (choices d)
                                   pairs
 
-      encodedChoices = encodeChoices (choices prog)
+      encodedChoices = encodeChoices (choices d)
 
       decode :: (Var a, b) -> Tensor (Summed ScaledPauli)
       decode (x, c) =
         decodeChoice encodedChoices c (var x)
       
       optimize :: forall x. (ShowParens x, Ord x) => Summed (Scaled x) -> Summed (Scaled x)
-      optimize x =
-        let y = combine x
-            y' = combine' x
-        in
-        if debugSolver && y /= y'
-          then error $ "combine incorrect: " ++ show (y, y')
-          else clean y
+      optimize = optimizeSummed
 
       constraintResults :: [(c, t (Var a, b))]
       constraintResults =
-        map (\x -> (constraints prog (fmap (first choice) x), x))
+        map (\x -> (constraints d (fmap (first choice) x), x))
             actualTuples
 
       combineSums ::
@@ -265,6 +274,34 @@ clean (Summed xs) = Summed $ filter nonZero xs
   where
     nonZero (Scale 0 _) = False
     nonZero _ = True
+
+optimizeSummed :: (ShowParens x, Ord x) => Summed (Scaled x) -> Summed (Scaled x)
+optimizeSummed x =
+  let y = combine x
+      y' = combine' x
+  in
+  if debugSolver && y /= y'
+    then error $ "combine incorrect: " ++ show (y, y')
+    else clean y
+
+compileHi :: forall t a b c. (Ord (t (Var a)), Part (t (Var a)), Eq a, Eq b, Traversable t) =>
+  Program t a b c ->
+  Summed (Scaled (Tensor PauliExpr))
+compileHi prog =
+  case relationalProgram prog of
+    Nothing -> Summed []
+    Just RelationalProgram { relationalView = relView, rule = ruleType, theta = rate } ->
+      let
+        d = dataProgram prog
+        varStruct = runFresh (genChoices (struct d))
+        allSites = map var (toList varStruct)
+        cSize = length (choices d)
+        hi = case ruleType of
+          Swap     -> relationalSwap cSize relView allSites
+          ZeroFlag -> relationalZero cSize relView allSites
+          OneFlag  -> relationalOne cSize relView allSites
+      in
+      optimizeSummed (scaleSummed rate hi)
 
 combine :: (Ord a) => Summed (Scaled a) -> Summed (Scaled a)
 -- combine = combine'
@@ -535,6 +572,7 @@ relationalSwapSites cSize sites =
         ]
     | kTuple <- distinctChoiceTuples (length sites) cSize
     , jTuple <- permutations kTuple
+    , jTuple /= kTuple
     ]
 
 -- | Sum relationalSwapSites over all combinations of desired arity
